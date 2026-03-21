@@ -711,6 +711,44 @@
 
         .tp-marker-label::before { display: none; }
 
+        /* --- Street View --- */
+        #tp-streetview-wrap {
+            width: 100%;
+            height: 160px;
+            background: #e8e8e8;
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        #tp-town-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        #tp-streetview-fallback {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 0.82rem;
+            text-align: center;
+            gap: 4px;
+        }
+
+        #tp-streetview-fallback-name {
+            color: #555;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .tp-sv-no-imagery { color: #aaa; }
+
         /* Mobile bottom sheet */
         @media (max-width: 640px) {
             #town-panel {
@@ -788,6 +826,13 @@
             <div class="tp-name" id="tp-name"></div>
             <div class="tp-sub" id="tp-sub"></div>
         </div>
+        <div id="tp-streetview-wrap">
+            <img id="tp-town-img" alt="" style="display:none">
+            <div id="tp-streetview-fallback">
+                <span id="tp-streetview-fallback-name"></span>
+                <span class="tp-sv-no-imagery">No image available</span>
+            </div>
+        </div>
         <div class="tp-body">
             <div class="tp-section">
                 <div class="tp-section-header">Lore</div>
@@ -815,6 +860,7 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 
     <script>
+
         // Initialize map
         const map = L.map('map', { zoomControl: false }).setView([53.3498, -7.2604], 7);
         L.control.zoom({ position: 'topright' }).addTo(map);
@@ -852,6 +898,40 @@
 
         function colorToCSS(name) {
             return COLOR_MAP[(name || '').toLowerCase().trim()] || '#999999';
+        }
+
+        function updateStreetView(lat, lon, townName, county) {
+            const img = document.getElementById('tp-town-img');
+            const fallback = document.getElementById('tp-streetview-fallback');
+            const fallbackName = document.getElementById('tp-streetview-fallback-name');
+
+            img.style.display = 'none';
+            fallback.style.display = 'flex';
+            fallbackName.textContent = townName;
+            img.src = '';
+
+            function tryWikiTitle(title, nextTry) {
+                const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+                fetch(url)
+                    .then(r => r.json())
+                    .then(function(data) {
+                        if (data.thumbnail && data.thumbnail.source) {
+                            img.src = data.thumbnail.source;
+                            img.style.display = 'block';
+                            fallback.style.display = 'none';
+                        } else if (nextTry) {
+                            nextTry();
+                        }
+                    })
+                    .catch(function() { if (nextTry) nextTry(); });
+            }
+
+            const withCounty = county ? `${townName}, County ${county}` : null;
+            if (withCounty) {
+                tryWikiTitle(withCounty, function() { tryWikiTitle(townName, null); });
+            } else {
+                tryWikiTitle(townName, null);
+            }
         }
 
         function updatePanelTourState() {
@@ -905,6 +985,10 @@
             document.getElementById('tp-type').textContent = props.type || '';
             const subParts = [props.name_ga, props.county ? `County ${props.county}` : ''].filter(Boolean);
             document.getElementById('tp-sub').textContent = subParts.join('  ·  ');
+
+            // Town image
+            const coords = layer.getLatLng();
+            updateStreetView(coords.lat, coords.lng, props.name, props.county);
 
             // LORE tab
             const loreEl = document.getElementById('tp-lore');
@@ -971,6 +1055,7 @@
 
         function closePanel() {
             document.getElementById('town-panel').classList.remove('open');
+            document.getElementById('tp-town-img').src = '';
             if (activePanelLayer) {
                 const props = activePanelLayer.feature ? activePanelLayer.feature.properties : {};
                 const isCity = props.type === 'city';
