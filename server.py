@@ -1,6 +1,8 @@
 import os
 import csv
 import json
+import re
+import urllib.request
 from flask import Flask, jsonify, send_from_directory, request
 from flask_cors import CORS
 
@@ -115,6 +117,35 @@ def search():
 
     results = (prefix_matches + partial_matches)[:10]
     return jsonify(results)
+
+
+@app.route('/og-image')
+def og_image():
+    """Fetch og:image from a luma event page and return the URL."""
+    url = request.args.get('url', '').strip()
+    if not url or not url.startswith('https://lu.ma/'):
+        return jsonify({'image': None}), 200
+    try:
+        req = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
+        with urllib.request.urlopen(req, timeout=5) as resp:
+            html = resp.read(32768).decode('utf-8', errors='ignore')
+        match = re.search(r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']', html)
+        if not match:
+            match = re.search(r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']', html)
+        image_url = match.group(1) if match else None
+        return jsonify({'image': image_url})
+    except Exception:
+        return jsonify({'image': None})
+
+
+@app.route('/events')
+def get_events():
+    """Return the events JSON."""
+    events_file = 'events_v1.json'
+    if not os.path.exists(events_file):
+        return jsonify({"events": []}), 200
+    with open(events_file, 'r', encoding='utf-8') as f:
+        return jsonify(json.load(f))
 
 
 if __name__ == '__main__':
