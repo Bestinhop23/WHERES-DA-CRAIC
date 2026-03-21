@@ -1,0 +1,152 @@
+[
+  {
+    "id": "1",
+    "name": "Bewley's Grafton Street",
+    "latitude": 53.3418,
+    "longitude": -6.2603,
+    "address": "78-79 Grafton St, Dublin 2",
+    "hours": "8am - 9pm",
+    "nfcTagId": "bewleys-grafton",
+    "description": "Iconic Dublin café since 1927, famous for its stained glass windows"
+  },
+  {
+    "id": "2",
+    "name": "Kaph",
+    "latitude": 53.3431,
+    "longitude": -6.2640,
+    "address": "31 Drury St, Dublin 2",
+    "hours": "8am - 6pm",
+    "nfcTagId": "kaph-drury",
+    "description": "Trendy speciality coffee in the heart of Creative Quarter"
+  },
+  {
+    "id": "3",
+    "name": "3fe Coffee",
+    "latitude": 53.3345,
+    "longitude": -6.2435,
+    "address": "32-34 Grand Canal St Lower, Dublin 2",
+    "hours": "7am - 5pm",
+    "nfcTagId": "3fe-gc",
+    "description": "Dublin's pioneering speciality roasters"
+  },
+  {
+    "id": "4",
+    "name": "Two Boys Brew",
+    "latitude": 53.3381,
+    "longitude": -6.2637,
+    "address": "375 S Circular Rd, Dublin 8",
+    "hours": "8am - 4pm",
+    "nfcTagId": "twoboys-brew",
+    "description": "Neighbourhood favourite with top-class pastries"
+  },
+  {
+    "id": "5",
+    "name": "Proper Order Coffee",
+    "latitude": 53.3558,
+    "longitude": -6.2291,
+    "address": "7 Haymarket, Smithfield, Dublin 7",
+    "hours": "8am - 5pm",
+    "nfcTagId": "proper-order",
+    "description": "Cosy spot with beans roasted on-site"
+  },
+  {
+    "id": "6",
+    "name": "Clement & Pekoe",
+    "latitude": 53.3414,
+    "longitude": -6.2630,
+    "address": "50 South William St, Dublin 2",
+    "hours": "8am - 6pm",
+    "nfcTagId": "clement-pekoe",
+    "description": "Speciality tea and coffee in a beautiful space"
+  },
+  {
+    "id": "7",
+    "name": "Brother Hubbard North",
+    "latitude": 53.3521,
+    "longitude": -6.2633,
+    "address": "153 Capel St, Dublin 1",
+    "hours": "8am - 4pm",
+    "nfcTagId": "brother-hubbard-n",
+    "description": "Middle Eastern-inspired brunch and great coffee"
+  },
+  {
+    "id": "8",
+    "name": "Network Café",
+    "latitude": 53.3391,
+    "longitude": -6.2620,
+    "address": "39 Aungier St, Dublin 2",
+    "hours": "8am - 5pm",
+    "nfcTagId": "network-aungier",
+    "description": "Student favourite with solid brews"
+  },
+  {
+    "id": "9",
+    "name": "Vice Coffee Inc.",
+    "latitude": 53.3436,
+    "longitude": -6.2595,
+    "address": "54 Middle Abbey St, Dublin 1",
+    "hours": "7:30am - 5pm",
+    "nfcTagId": "vice-coffee",
+    "description": "No-nonsense quality coffee, fast service"
+  },
+  {
+    "id": "10",
+    "name": "Shoe Lane Coffee",
+    "latitude": 53.3445,
+    "longitude": -6.2668,
+    "address": "Tara Building, Tara St, Dublin 2",
+    "hours": "7:30am - 4pm",
+    "nfcTagId": "shoe-lane",
+    "description": "Hidden gem in the Tara Building"
+  },
+  {
+    "id": "11",
+    "name": "The Fumbally",
+    "latitude": 53.3370,
+    "longitude": -6.2759,
+    "address": "Fumbally Ln, Dublin 8",
+    "hours": "8am - 5pm",
+    "nfcTagId": "fumbally",
+    "description": "Community-driven café with seasonal menu"
+  },
+  {
+    "id": "12",
+    "name": "Cloud Picker",
+    "latitude": 53.3335,
+    "longitude": -6.2410,
+    "address": "Pearse St, Dublin 2",
+    "hours": "8am - 4pm",
+    "nfcTagId": "cloud-picker",
+    "description": "Award-winning roastery and café"
+  },
+  {
+    "id": "13",
+    "name": "Love Supreme",
+    "latitude": 53.3501,
+    "longitude": -6.2648,
+    "address": "57 Manor St, Dublin 7",
+    "hours": "8am - 3pm",
+    "nfcTagId": "love-supreme",
+    "description": "Stoneybatter's beloved coffee spot"
+  },
+  {
+    "id": "14",
+    "name": "Silks Coffee",
+    "latitude": 53.3468,
+    "longitude": -6.2577,
+    "address": "6 Jervis St, Dublin 1",
+    "hours": "7am - 6pm",
+    "nfcTagId": "silks-jervis",
+    "description": "Premium beans in the city centre"
+  },
+  {
+    "id": "15",
+    "name": "Roasted Brown",
+    "latitude": 53.3363,
+    "longitude": -6.2523,
+    "address": "5A Lennox St, Dublin 8",
+    "hours": "8am - 4pm",
+    "nfcTagId": "roasted-brown",
+    "description": "Portobello local with excellent single origins"
+  }
+]

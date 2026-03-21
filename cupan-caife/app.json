@@ -1,0 +1,43 @@
+{
+  "expo": {
+    "name": "Cupán Caife",
+    "slug": "cupan-caife",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "dark",
+    "scheme": "cupancaife",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0d1117"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NFCReaderUsageDescription": "Scan NFC tags at coffee shops to get your Irish language discount"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0d1117",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "react-native-nfc-manager",
+        {
+          "nfcPermission": "Scan NFC tags at coffee shops for discounts"
+        }
+      ]
+    ]
+  }
+}
