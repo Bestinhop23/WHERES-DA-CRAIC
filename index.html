@@ -78,15 +78,250 @@
             color: #1a5e3c;
             font-weight: bold;
         }
+
+        #search-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            width: 300px;
+        }
+
+        #search-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 14px;
+            border: none;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+            background: rgba(255,255,255,0.95);
+        }
+
+        #search-input:focus {
+            box-shadow: 0 0 0 2px #1a5e3c, 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        #search-results {
+            list-style: none;
+            margin: 4px 0 0;
+            padding: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            overflow: hidden;
+            display: none;
+        }
+
+        #search-results li {
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            border-bottom: 1px solid #f0f0f0;
+            color: #333;
+        }
+
+        #search-results li:last-child { border-bottom: none; }
+
+        #search-results li:hover,
+        #search-results li.active {
+            background: #e8f5e9;
+            color: #1a5e3c;
+        }
+
+        #search-results li .result-county {
+            font-size: 0.75rem;
+            color: #888;
+            margin-left: 6px;
+        }
+
+        #search-results li.no-results {
+            color: #999;
+            cursor: default;
+            font-style: italic;
+        }
+
+        #search-results li.no-results:hover { background: white; }
+
+        /* --- Route Panel --- */
+        #route-panel {
+            position: absolute;
+            top: 75px;
+            left: 20px;
+            z-index: 1000;
+            width: 300px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .route-input-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .route-pin {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: white;
+            flex-shrink: 0;
+            margin-right: 8px;
+        }
+
+        .from-pin { background: #1a5e3c; }
+        .to-pin   { background: #e67e22; }
+
+        .route-input {
+            flex: 1;
+            padding: 7px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            font-family: inherit;
+            outline: none;
+            background: white;
+        }
+
+        .route-input:focus { border-color: #1a5e3c; }
+
+        .route-results-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            overflow: hidden;
+            display: none;
+            position: absolute;
+            top: calc(100% + 2px);
+            left: 30px;
+            right: 0;
+            z-index: 1100;
+        }
+
+        .route-results-list li {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            border-bottom: 1px solid #f0f0f0;
+            color: #333;
+        }
+
+        .route-results-list li:last-child { border-bottom: none; }
+
+        .route-results-list li:hover,
+        .route-results-list li.active {
+            background: #e8f5e9;
+            color: #1a5e3c;
+        }
+
+        .route-results-list li .result-county {
+            font-size: 0.72rem;
+            color: #888;
+            margin-left: 6px;
+        }
+
+        #clear-route {
+            width: 100%;
+            margin-top: 4px;
+            padding: 6px;
+            background: none;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #666;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        #clear-route:hover { background: #fef2f2; border-color: #e67e22; color: #e67e22; }
+
+        #route-summary {
+            margin-top: 8px;
+            padding: 6px 8px;
+            background: #f0f7f4;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #1a5e3c;
+            font-weight: 500;
+        }
+
+        #route-towns {
+            margin-top: 6px;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .route-town-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            color: #333;
+            gap: 8px;
+        }
+
+        .route-town-item:hover { background: #e8f5e9; color: #1a5e3c; }
+
+        .route-town-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #e67e22;
+            flex-shrink: 0;
+        }
+
+        .route-town-county {
+            font-size: 0.72rem;
+            color: #888;
+            margin-left: auto;
+        }
     </style>
 </head>
 <body>
 
     <div class="map-header">
-        <h1>☘️ Craic? Deep Culture Map</h1>
         <p id="stats">Enriching towns and villages...</p>
     </div>
     
+    <div id="search-container">
+        <input id="search-input" type="text" placeholder="🔍 Search places...">
+        <ul id="search-results"></ul>
+    </div>
+
+    <div id="route-panel">
+        <div id="route-inputs">
+            <div class="route-input-wrap">
+                <span class="route-pin from-pin">A</span>
+                <input id="from-input" class="route-input" type="text" placeholder="From...">
+                <ul id="from-results" class="route-results-list"></ul>
+            </div>
+            <div class="route-input-wrap">
+                <span class="route-pin to-pin">B</span>
+                <input id="to-input" class="route-input" type="text" placeholder="To...">
+                <ul id="to-results" class="route-results-list"></ul>
+            </div>
+            <button id="clear-route">✕ Clear route</button>
+        </div>
+        <div id="route-summary" style="display:none"></div>
+        <div id="route-towns" style="display:none"></div>
+    </div>
+
     <div id="loading" class="loading-overlay">Loading Ireland's stories...</div>
     <div id="map"></div>
 
@@ -95,7 +330,8 @@
     
     <script>
         // Initialize map
-        const map = L.map('map').setView([53.3498, -7.2604], 7); // Center of Ireland
+        const map = L.map('map', { zoomControl: false }).setView([53.3498, -7.2604], 7); // Center of Ireland
+        L.control.zoom({ position: 'topright' }).addTo(map);
         
         // Add tile layer (Stadia Alidade Smooth is nice and clean)
         L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
@@ -105,6 +341,25 @@
 
         // Function to create popup content
         function createPopup(props) {
+            const etymology = props.etymology
+                ? (typeof props.etymology === 'string' ? props.etymology : (props.etymology.meaning || props.etymology.origin || ''))
+                : '';
+            const historyLandmarks = props.history_landmarks
+                ? (Array.isArray(props.history_landmarks) ? props.history_landmarks.join(', ') : (props.history_landmarks.events || props.history_landmarks.ruins || props.history_landmarks))
+                : '';
+            const gaaClub = props.gaa_heritage
+                ? (props.gaa_heritage.club_name || props.gaa_heritage.club || '')
+                : '';
+            const gaaColors = props.gaa_heritage
+                ? (Array.isArray(props.gaa_heritage.colors) ? props.gaa_heritage.colors.join('/') : (props.gaa_heritage.colors || ''))
+                : '';
+            const hiddenGem = props.hidden_gem
+                ? (props.hidden_gem.spot || props.hidden_gem)
+                : '';
+            const localPhrase = props.local_phrase
+                ? `<em>"${props.local_phrase.phrase}"</em> - ${props.local_phrase.meaning}`
+                : '';
+
             let html = `
                 <div class="popup-content">
                     <h3>${props.name}</h3>
@@ -112,26 +367,26 @@
                         <span class="tag">${props.type}</span>
                         <span class="tag">${props.county || 'Ireland'}</span>
                     </div>
-                    
+
                     <h4>📜 Etymology</h4>
-                    <p><strong>${props.name_ga || ''}</strong>: ${typeof props.etymology === 'string' ? props.etymology : (props.etymology.meaning || props.etymology.origin || '')}</p>
-                    
+                    <p><strong>${props.name_ga || ''}</strong>: ${etymology}</p>
+
                     <h4>👻 Folklore & Myth</h4>
-                    <p>${props.folklore_myth}</p>
-                    
+                    <p>${props.folklore_myth || ''}</p>
+
                     <h4>🏛️ History & Landmarks</h4>
-                    <p>${Array.isArray(props.history_landmarks) ? props.history_landmarks.join(', ') : (props.history_landmarks.events || props.history_landmarks.ruins || props.history_landmarks)}</p>
-                    
+                    <p>${historyLandmarks}</p>
+
                     <h4>🏆 GAA Heritage</h4>
-                    <p>${props.gaa_heritage.club_name || props.gaa_heritage.club || ''} (${Array.isArray(props.gaa_heritage.colors) ? props.gaa_heritage.colors.join('/') : props.gaa_heritage.colors})</p>
-                    
+                    <p>${gaaClub} (${gaaColors})</p>
+
                     <h4>✨ Hidden Gem</h4>
-                    <p>${props.hidden_gem.spot || props.hidden_gem}</p>
-                    
+                    <p>${hiddenGem}</p>
+
                     <h4>🗣️ Local Phrase</h4>
-                    <p><em>"${props.local_phrase.phrase}"</em> - ${props.local_phrase.meaning}</p>
-                    
-                    <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(props.multimedia_query)}" target="_blank" class="multimedia-link">
+                    <p>${localPhrase}</p>
+
+                    <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(props.multimedia_query || props.name)}" target="_blank" class="multimedia-link">
                         🎵 Hear the Sound of ${props.name}
                     </a>
                 </div>
@@ -140,29 +395,36 @@
         }
 
         // Fetch data
+        let geoJsonLayer = null;
+
         async function loadData() {
             try {
                 const response = await fetch('/data');
                 const data = await response.json();
-                
+
                 document.getElementById('loading').style.display = 'none';
                 document.getElementById('stats').innerText = `Loaded ${data.features.length} enriched places.`;
-                
-                L.geoJSON(data, {
-                    pointToLayer: function(feature, latlng) {
-                        return L.circleMarker(latlng, {
-                            radius: feature.properties.type === 'city' ? 8 : 6,
-                            fillColor: "#1a5e3c",
-                            color: "#fff",
-                            weight: 1,
-                            opacity: 1,
-                            fillOpacity: 0.8
-                        });
-                    },
-                    onEachFeature: function(feature, layer) {
-                        layer.bindPopup(createPopup(feature.properties));
-                    }
-                }).addTo(map);
+
+                if (geoJsonLayer) {
+                    geoJsonLayer.clearLayers();
+                    geoJsonLayer.addData(data);
+                } else {
+                    geoJsonLayer = L.geoJSON(data, {
+                        pointToLayer: function(feature, latlng) {
+                            return L.circleMarker(latlng, {
+                                radius: feature.properties.type === 'city' ? 8 : 6,
+                                fillColor: "#1a5e3c",
+                                color: "#fff",
+                                weight: 1,
+                                opacity: 1,
+                                fillOpacity: 0.8
+                            });
+                        },
+                        onEachFeature: function(feature, layer) {
+                            layer.bindPopup(createPopup(feature.properties));
+                        }
+                    }).addTo(map);
+                }
             } catch (err) {
                 console.error("Error loading data:", err);
                 document.getElementById('loading').innerText = "Failed to load data. Is the server running?";
@@ -170,9 +432,345 @@
         }
 
         loadData();
-        
+
         // Refresh data every 30 seconds to show progress
         setInterval(loadData, 30000);
+
+        // --- Search ---
+        const searchInput = document.getElementById('search-input');
+        const searchResults = document.getElementById('search-results');
+        let activeIndex = -1;
+        let debounceTimer = null;
+
+        function closeDropdown() {
+            searchResults.style.display = 'none';
+            searchResults.innerHTML = '';
+            activeIndex = -1;
+        }
+
+        function setActive(index) {
+            const items = searchResults.querySelectorAll('li:not(.no-results)');
+            items.forEach(li => li.classList.remove('active'));
+            activeIndex = Math.max(0, Math.min(index, items.length - 1));
+            if (items[activeIndex]) items[activeIndex].classList.add('active');
+        }
+
+        function flyToPlace(result) {
+            closeDropdown();
+            searchInput.value = result.name;
+            map.flyTo([result.lat, result.lon], 13);
+
+            // Open the popup on the matching layer once the map settles
+            map.once('moveend', function() {
+                if (!geoJsonLayer) return;
+                geoJsonLayer.eachLayer(function(layer) {
+                    if (layer.feature && layer.feature.properties.name === result.name) {
+                        layer.openPopup();
+                    }
+                });
+            });
+        }
+
+        function renderResults(results) {
+            searchResults.innerHTML = '';
+            if (results.length === 0) {
+                const li = document.createElement('li');
+                li.className = 'no-results';
+                li.textContent = 'No results found';
+                searchResults.appendChild(li);
+            } else {
+                results.forEach(function(r) {
+                    const li = document.createElement('li');
+                    li.innerHTML = `${r.name}<span class="result-county">${r.county || 'Ireland'}</span>`;
+                    li.addEventListener('mousedown', function(e) {
+                        e.preventDefault(); // prevent blur before click fires
+                        flyToPlace(r);
+                    });
+                    searchResults.appendChild(li);
+                });
+            }
+            searchResults.style.display = 'block';
+            activeIndex = -1;
+        }
+
+        searchInput.addEventListener('input', function() {
+            clearTimeout(debounceTimer);
+            const q = searchInput.value.trim();
+            if (q.length < 2) { closeDropdown(); return; }
+            debounceTimer = setTimeout(async function() {
+                try {
+                    const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
+                    const data = await res.json();
+                    renderResults(data);
+                } catch (e) {
+                    closeDropdown();
+                }
+            }, 200);
+        });
+
+        searchInput.addEventListener('keydown', function(e) {
+            const items = searchResults.querySelectorAll('li:not(.no-results)');
+            if (e.key === 'ArrowDown') { e.preventDefault(); setActive(activeIndex + 1); }
+            else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(activeIndex - 1); }
+            else if (e.key === 'Enter') {
+                e.preventDefault();
+                const target = activeIndex >= 0 ? items[activeIndex] : items[0];
+                if (target) target.dispatchEvent(new Event('mousedown'));
+            }
+            else if (e.key === 'Escape') { closeDropdown(); searchInput.blur(); }
+        });
+
+        searchInput.addEventListener('blur', function() {
+            setTimeout(closeDropdown, 150);
+        });
+
+        // --- Routing ---
+        const ROUTE_THRESHOLD_KM = 10;
+
+        let fromPlace = null;
+        let toPlace = null;
+        let routePolyline = null;
+        let routeMarkers = [];
+        let highlightedLayers = [];
+
+        // Haversine distance between two [lat, lon] points in km
+        function haversineKm(lat1, lon1, lat2, lon2) {
+            const R = 6371;
+            const dLat = (lat2 - lat1) * Math.PI / 180;
+            const dLon = (lon2 - lon1) * Math.PI / 180;
+            const a = Math.sin(dLat/2) * Math.sin(dLat/2)
+                    + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180)
+                    * Math.sin(dLon/2) * Math.sin(dLon/2);
+            return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        }
+
+        // Minimum distance from point P to segment A-B (all as [lat, lon]), returns km
+        function distPointToSegmentKm(p, a, b) {
+            const dx = b[0] - a[0], dy = b[1] - a[1];
+            const lenSq = dx * dx + dy * dy;
+            if (lenSq === 0) return haversineKm(p[0], p[1], a[0], a[1]);
+            let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+            return haversineKm(p[0], p[1], a[0] + t * dx, a[1] + t * dy);
+        }
+
+        function formatDuration(seconds) {
+            const h = Math.floor(seconds / 3600);
+            const m = Math.round((seconds % 3600) / 60);
+            return h > 0 ? `${h}h ${m}min` : `${m}min`;
+        }
+
+        function clearRoute() {
+            if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
+            routeMarkers.forEach(m => map.removeLayer(m));
+            routeMarkers = [];
+            highlightedLayers.forEach(function(layer) {
+                const isCity = layer.feature && layer.feature.properties.type === 'city';
+                layer.setStyle({ fillColor: '#1a5e3c', radius: isCity ? 8 : 6 });
+            });
+            highlightedLayers = [];
+            fromPlace = null;
+            toPlace = null;
+            document.getElementById('from-input').value = '';
+            document.getElementById('to-input').value = '';
+            document.getElementById('route-summary').style.display = 'none';
+            document.getElementById('route-towns').style.display = 'none';
+        }
+
+        function makePinIcon(label, color) {
+            return L.divIcon({
+                className: '',
+                html: `<div style="background:${color};color:white;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:0.8rem;border:2px solid white;box-shadow:0 2px 4px rgba(0,0,0,0.3)">${label}</div>`,
+                iconSize: [26, 26],
+                iconAnchor: [13, 13]
+            });
+        }
+
+        function findIntersectingTowns(routeLatLngs) {
+            if (!geoJsonLayer) return [];
+            const matches = [];
+            geoJsonLayer.eachLayer(function(layer) {
+                if (!layer.getLatLng) return;
+                const ll = layer.getLatLng();
+                const p = [ll.lat, ll.lng];
+                let minDist = Infinity, closestIdx = 0;
+                for (let i = 0; i < routeLatLngs.length - 1; i++) {
+                    const d = distPointToSegmentKm(p, routeLatLngs[i], routeLatLngs[i + 1]);
+                    if (d < minDist) { minDist = d; closestIdx = i; }
+                }
+                if (minDist <= ROUTE_THRESHOLD_KM) {
+                    matches.push({ layer, closestIdx, minDist });
+                }
+            });
+            matches.sort((a, b) => a.closestIdx - b.closestIdx);
+            return matches;
+        }
+
+        async function drawRoute() {
+            if (!fromPlace || !toPlace) return;
+
+            try {
+                const url = `https://router.project-osrm.org/route/v1/driving/${fromPlace.lon},${fromPlace.lat};${toPlace.lon},${toPlace.lat}?overview=full&geometries=geojson`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (!data.routes || data.routes.length === 0) {
+                    alert('Could not find a route between those places.');
+                    return;
+                }
+
+                const route = data.routes[0];
+                const coords = route.geometry.coordinates; // [lon, lat]
+                const latLngs = coords.map(c => [c[1], c[0]]);
+
+                if (routePolyline) map.removeLayer(routePolyline);
+                routePolyline = L.polyline(latLngs, {
+                    color: '#1a5e3c',
+                    weight: 5,
+                    opacity: 0.75,
+                    dashArray: '8 4'
+                }).addTo(map);
+
+                map.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
+
+                const distKm = Math.round(route.distance / 1000);
+                const duration = formatDuration(route.duration);
+
+                // Find intersecting towns
+                highlightedLayers.forEach(function(layer) {
+                    const isCity = layer.feature && layer.feature.properties.type === 'city';
+                    layer.setStyle({ fillColor: '#1a5e3c', radius: isCity ? 8 : 6 });
+                });
+                highlightedLayers = [];
+
+                const matches = findIntersectingTowns(latLngs);
+                matches.forEach(function(m) {
+                    m.layer.setStyle({ fillColor: '#e67e22', radius: 9 });
+                    highlightedLayers.push(m.layer);
+                });
+
+                // Summary
+                const summaryEl = document.getElementById('route-summary');
+                summaryEl.textContent = `${distKm} km · ~${duration}   ·   ${matches.length} town${matches.length !== 1 ? 's' : ''} along the way`;
+                summaryEl.style.display = 'block';
+
+                // Towns list
+                const townsEl = document.getElementById('route-towns');
+                if (matches.length > 0) {
+                    townsEl.innerHTML = '';
+                    matches.forEach(function(m) {
+                        const props = m.layer.feature ? m.layer.feature.properties : {};
+                        const item = document.createElement('div');
+                        item.className = 'route-town-item';
+                        item.innerHTML = `
+                            <div class="route-town-dot"></div>
+                            <span>${props.name || '?'}</span>
+                            <span class="route-town-county">${props.county || ''}</span>
+                        `;
+                        item.addEventListener('click', function() {
+                            map.flyTo(m.layer.getLatLng(), 13);
+                            map.once('moveend', function() { m.layer.openPopup(); });
+                        });
+                        townsEl.appendChild(item);
+                    });
+                    townsEl.style.display = 'block';
+                } else {
+                    townsEl.style.display = 'none';
+                }
+
+            } catch (err) {
+                console.error('Route error:', err);
+            }
+        }
+
+        // Route input helpers — reuses /search endpoint
+        function makeRouteInput(inputEl, resultsEl, onSelect) {
+            let timer = null;
+            let activeIdx = -1;
+
+            function closeList() {
+                resultsEl.style.display = 'none';
+                resultsEl.innerHTML = '';
+                activeIdx = -1;
+            }
+
+            function setActiveItem(idx) {
+                const items = resultsEl.querySelectorAll('li');
+                items.forEach(li => li.classList.remove('active'));
+                activeIdx = Math.max(0, Math.min(idx, items.length - 1));
+                if (items[activeIdx]) items[activeIdx].classList.add('active');
+            }
+
+            inputEl.addEventListener('input', function() {
+                clearTimeout(timer);
+                const q = inputEl.value.trim();
+                if (q.length < 2) { closeList(); return; }
+                timer = setTimeout(async function() {
+                    try {
+                        const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
+                        const results = await res.json();
+                        resultsEl.innerHTML = '';
+                        results.forEach(function(r) {
+                            const li = document.createElement('li');
+                            li.innerHTML = `${r.name}<span class="result-county">${r.county || 'Ireland'}</span>`;
+                            li.addEventListener('mousedown', function(e) {
+                                e.preventDefault();
+                                inputEl.value = r.name;
+                                closeList();
+                                onSelect(r);
+                            });
+                            resultsEl.appendChild(li);
+                        });
+                        resultsEl.style.display = results.length ? 'block' : 'none';
+                        activeIdx = -1;
+                    } catch(e) { closeList(); }
+                }, 200);
+            });
+
+            inputEl.addEventListener('keydown', function(e) {
+                const items = resultsEl.querySelectorAll('li');
+                if (e.key === 'ArrowDown') { e.preventDefault(); setActiveItem(activeIdx + 1); }
+                else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveItem(activeIdx - 1); }
+                else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const target = activeIdx >= 0 ? items[activeIdx] : items[0];
+                    if (target) target.dispatchEvent(new Event('mousedown'));
+                }
+                else if (e.key === 'Escape') { closeList(); inputEl.blur(); }
+            });
+
+            inputEl.addEventListener('blur', function() { setTimeout(closeList, 150); });
+        }
+
+        makeRouteInput(
+            document.getElementById('from-input'),
+            document.getElementById('from-results'),
+            function(r) {
+                fromPlace = r;
+                routeMarkers.filter(m => m._isFrom).forEach(m => map.removeLayer(m));
+                routeMarkers = routeMarkers.filter(m => !m._isFrom);
+                const marker = L.marker([r.lat, r.lon], { icon: makePinIcon('A', '#1a5e3c') }).addTo(map);
+                marker._isFrom = true;
+                routeMarkers.push(marker);
+                drawRoute();
+            }
+        );
+
+        makeRouteInput(
+            document.getElementById('to-input'),
+            document.getElementById('to-results'),
+            function(r) {
+                toPlace = r;
+                routeMarkers.filter(m => m._isTo).forEach(m => map.removeLayer(m));
+                routeMarkers = routeMarkers.filter(m => !m._isTo);
+                const marker = L.marker([r.lat, r.lon], { icon: makePinIcon('B', '#e67e22') }).addTo(map);
+                marker._isTo = true;
+                routeMarkers.push(marker);
+                drawRoute();
+            }
+        );
+
+        document.getElementById('clear-route').addEventListener('click', clearRoute);
     </script>
 </body>
 </html>
