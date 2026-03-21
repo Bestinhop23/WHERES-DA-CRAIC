@@ -19,32 +19,60 @@
             image-rendering: crisp-edges;
         }
 
-        .map-header {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            text-align: center;
+        /* --- Full-screen loading splash --- */
+        #loading-splash {
+            position: fixed;
+            inset: 0;
+            background: #1a5e3c;
+            z-index: 9000;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 28px;
+            transition: opacity 0.6s ease;
         }
 
-        .map-header p { margin: 0; font-size: 0.9rem; color: #666; }
+        #loading-splash.fade-out {
+            opacity: 0;
+            pointer-events: none;
+        }
 
-        .loading-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-            font-size: 1.2rem;
-            color: #1a5e3c;
-            font-weight: bold;
+        #loading-splash h1 {
+            color: white;
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            margin: 0;
+        }
+
+        #loading-splash p {
+            color: rgba(255,255,255,0.65);
+            font-size: 0.9rem;
+            margin: -18px 0 0;
+        }
+
+        #loading-track {
+            width: 260px;
+            height: 4px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        #loading-fill {
+            height: 100%;
+            width: 0%;
+            background: white;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+        }
+
+        #loading-status {
+            color: rgba(255,255,255,0.55);
+            font-size: 0.78rem;
+            margin-top: -18px;
+            letter-spacing: 0.03em;
         }
 
         /* --- Search --- */
@@ -113,6 +141,107 @@
         }
 
         #search-results li.no-results:hover { background: white; }
+
+        /* --- County Panel --- */
+        #county-panel {
+            position: absolute;
+            top: 70px;
+            left: 20px;
+            z-index: 1150;
+            width: 300px;
+            background: rgba(255,255,255,0.97);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            flex-direction: column;
+            max-height: calc(100vh - 100px);
+            overflow: hidden;
+        }
+
+        #county-panel.open { display: flex; }
+
+        #county-panel-header {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            background: #e67e22;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        #county-panel-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: white;
+            flex: 1;
+        }
+
+        #county-panel-count {
+            font-size: 0.78rem;
+            color: rgba(255,255,255,0.8);
+        }
+
+        #county-clear {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 2px;
+            opacity: 0.8;
+        }
+
+        #county-clear:hover { opacity: 1; }
+
+        #county-towns-list {
+            overflow-y: auto;
+            padding: 6px 0;
+        }
+
+        .county-town-item {
+            display: flex;
+            align-items: center;
+            padding: 7px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #333;
+            gap: 8px;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .county-town-item:last-child { border-bottom: none; }
+
+        .county-town-item:hover { background: #fff3e0; color: #e67e22; }
+
+        .county-town-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #e67e22;
+            flex-shrink: 0;
+        }
+
+        .county-town-type {
+            font-size: 0.7rem;
+            color: #aaa;
+            margin-left: auto;
+            text-transform: capitalize;
+        }
+
+        /* County suggestion in search dropdown */
+        #search-results li.county-suggestion {
+            background: #fff8f0;
+            border-left: 3px solid #e67e22;
+            color: #c96a10;
+            font-weight: 600;
+        }
+
+        #search-results li.county-suggestion:hover,
+        #search-results li.county-suggestion.active {
+            background: #ffe8cc;
+            color: #e67e22;
+        }
 
         /* --- Route Panel --- */
         #route-panel {
@@ -581,13 +710,25 @@
 </head>
 <body>
 
-    <div class="map-header">
-        <p id="stats">Enriching towns and villages...</p>
+    <div id="loading-splash">
+        <h1>Craic?</h1>
+        <p>Deep culture map of Ireland</p>
+        <div id="loading-track"><div id="loading-fill"></div></div>
+        <div id="loading-status">Loading towns...</div>
     </div>
 
     <div id="search-container">
         <input id="search-input" type="text" placeholder="🔍 Search places...">
         <ul id="search-results"></ul>
+    </div>
+
+    <div id="county-panel">
+        <div id="county-panel-header">
+            <span id="county-panel-title"></span>
+            <span id="county-panel-count"></span>
+            <button id="county-clear">×</button>
+        </div>
+        <div id="county-towns-list"></div>
     </div>
 
     <div id="route-panel">
@@ -646,7 +787,6 @@
         <div class="tp-footer" id="tp-footer"></div>
     </div>
 
-    <div id="loading" class="loading-overlay">Loading Ireland's stories...</div>
     <div id="map"></div>
 
     <!-- Leaflet JS -->
@@ -673,16 +813,19 @@
 
         const COLOR_MAP = {
             'green': '#2e7d32', 'dark green': '#1a5e3c', 'light green': '#81c784',
-            'emerald': '#009b77', 'bottle green': '#006a4e',
-            'red': '#c62828', 'dark red': '#8b0000', 'maroon': '#7b0d1e', 'cardinal red': '#9b2335',
+            'emerald': '#009b77', 'emerald green': '#009b77', 'bottle green': '#006a4e',
+            'red': '#c62828', 'dark red': '#8b0000', 'maroon': '#7b0d1e',
+            'cardinal red': '#9b2335', 'blood red': '#8b0000', 'scarlet': '#cc2200',
             'blue': '#1565c0', 'dark blue': '#0d3b6e', 'light blue': '#64b5f6',
             'sky blue': '#87ceeb', 'royal blue': '#2563c4', 'navy': '#001f5b', 'navy blue': '#001f5b',
-            'yellow': '#f9a825', 'gold': '#c9a84c', 'amber': '#ffbf00', 'saffron': '#ff9900',
+            'yellow': '#f9a825', 'gold': '#c9a84c', 'golden': '#c9a84c', 'amber': '#ffbf00',
+            'saffron': '#ff9900', 'primrose': '#f0e080', 'lemon': '#f5e642',
             'white': '#eeeeee', 'black': '#1a1a1a',
             'orange': '#e65100', 'burnt orange': '#bf5700',
-            'purple': '#6a1b9a', 'violet': '#7f00ff',
-            'grey': '#757575', 'gray': '#757575', 'silver': '#bdbdbd',
-            'brown': '#5d4037', 'claret': '#7b1034',
+            'purple': '#6a1b9a', 'violet': '#7f00ff', 'magenta': '#c2185b',
+            'grey': '#888888', 'gray': '#888888', 'silver': '#bdbdbd',
+            'brown': '#5d4037', 'claret': '#7b1034', 'wine': '#722f37',
+            'pink': '#e91e8c', 'cream': '#f5f0dc', 'cardinal': '#9b2335',
         };
 
         function colorToCSS(name) {
@@ -763,7 +906,9 @@
             const gaa = props.gaa_heritage;
             if (gaa) {
                 const clubName = gaa.club_name || gaa.club || '';
-                const rawColors = Array.isArray(gaa.colors) ? gaa.colors : (gaa.colors ? String(gaa.colors).split(/[,/]/).map(s => s.trim()) : []);
+                const rawColors = Array.isArray(gaa.colors)
+                    ? gaa.colors
+                    : (gaa.colors ? String(gaa.colors).split(/\s+and\s+|\s*[,/&]\s*/).map(s => s.trim()).filter(Boolean) : []);
                 const legends = gaa.legends || gaa.notable_players || '';
                 const swatchesHtml = rawColors.map(c =>
                     `<div class="tp-gaa-swatch" style="background:${colorToCSS(c)}" title="${c}"></div>`
@@ -837,13 +982,36 @@
         // =====================================================================
         let geoJsonLayer = null;
 
+        let barTimer = null;
+        let splashDone = false;
+
+        function startLoadingBar() {
+            let pct = 0;
+            clearInterval(barTimer);
+            barTimer = setInterval(function() {
+                pct += (85 - pct) * 0.07;
+                document.getElementById('loading-fill').style.width = pct + '%';
+            }, 80);
+        }
+
+        function finishLoadingBar(count) {
+            clearInterval(barTimer);
+            document.getElementById('loading-fill').style.width = '100%';
+            document.getElementById('loading-status').textContent = `${count} towns loaded`;
+            setTimeout(function() {
+                const splash = document.getElementById('loading-splash');
+                splash.classList.add('fade-out');
+                setTimeout(function() { splash.style.display = 'none'; }, 650);
+                splashDone = true;
+            }, 600);
+        }
+
         async function loadData() {
             try {
+                startLoadingBar();
                 const response = await fetch('/data');
                 const data = await response.json();
-
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('stats').innerText = `Loaded ${data.features.length} enriched places.`;
+                finishLoadingBar(data.features.length);
 
                 if (geoJsonLayer) {
                     geoJsonLayer.clearLayers();
@@ -871,7 +1039,10 @@
                 }
             } catch (err) {
                 console.error('Error loading data:', err);
-                document.getElementById('loading').innerText = 'Failed to load data. Is the server running?';
+                clearInterval(barTimer);
+                document.getElementById('loading-fill').style.background = '#e74c3c';
+                document.getElementById('loading-fill').style.width = '100%';
+                document.getElementById('loading-status').textContent = 'Failed to load — is the server running?';
             }
         }
 
@@ -917,7 +1088,18 @@
 
         function renderResults(results) {
             searchResults.innerHTML = '';
-            if (results.length === 0) {
+            const countyMatch = matchCounty(searchInput.value);
+            if (countyMatch) {
+                const li = document.createElement('li');
+                li.className = 'county-suggestion';
+                li.innerHTML = `🗺 County ${countyMatch} <span class="result-county">show all towns</span>`;
+                li.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    selectCounty(countyMatch);
+                });
+                searchResults.appendChild(li);
+            }
+            if (results.length === 0 && !countyMatch) {
                 const li = document.createElement('li');
                 li.className = 'no-results';
                 li.textContent = 'No results found';
@@ -963,6 +1145,148 @@
         });
 
         searchInput.addEventListener('blur', function() { setTimeout(closeDropdown, 150); });
+
+        // =====================================================================
+        // County search
+        // =====================================================================
+        const IRISH_COUNTIES = [
+            'Antrim','Armagh','Carlow','Cavan','Clare','Cork','Derry','Donegal',
+            'Down','Dublin','Fermanagh','Galway','Kerry','Kildare','Kilkenny',
+            'Laois','Leitrim','Limerick','Longford','Louth','Mayo','Meath',
+            'Monaghan','Offaly','Roscommon','Sligo','Tipperary','Tyrone',
+            'Waterford','Westmeath','Wexford','Wicklow'
+        ];
+
+        let countyHighlightedLayers = [];
+        let activeCounty = null;
+        let countyBorderLayer = null;
+
+        function matchCounty(q) {
+            const lower = q.toLowerCase().trim();
+            if (lower.length < 2) return null;
+            return IRISH_COUNTIES.find(c => c.toLowerCase().startsWith(lower)) || null;
+        }
+
+        // Ray-casting point-in-polygon for a single ring of [lon, lat] pairs
+        function pointInRing(lon, lat, ring) {
+            let inside = false;
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                const xi = ring[i][0], yi = ring[i][1];
+                const xj = ring[j][0], yj = ring[j][1];
+                if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
+
+        // Works with Polygon or MultiPolygon GeoJSON geometry
+        function pointInGeometry(lon, lat, geometry) {
+            if (!geometry) return false;
+            if (geometry.type === 'Polygon') {
+                return pointInRing(lon, lat, geometry.coordinates[0]);
+            }
+            if (geometry.type === 'MultiPolygon') {
+                return geometry.coordinates.some(poly => pointInRing(lon, lat, poly[0]));
+            }
+            return false;
+        }
+
+        function clearCounty() {
+            countyHighlightedLayers.forEach(function(layer) {
+                const isCity = layer.feature && layer.feature.properties.type === 'city';
+                const isOnRoute = highlightedLayers.includes(layer);
+                layer.setStyle({
+                    fillColor: isOnRoute ? '#e67e22' : '#1a5e3c',
+                    color: '#fff', weight: 1,
+                    radius: isCity ? 8 : 6, fillOpacity: 0.8
+                });
+            });
+            countyHighlightedLayers = [];
+            activeCounty = null;
+            if (countyBorderLayer) { map.removeLayer(countyBorderLayer); countyBorderLayer = null; }
+            document.getElementById('county-panel').classList.remove('open');
+        }
+
+        async function selectCounty(countyName) {
+            closeDropdown();
+            searchInput.value = '';
+            clearCounty();
+            activeCounty = countyName;
+
+            // Show loading state immediately
+            document.getElementById('county-panel-title').textContent = `County ${countyName}`;
+            document.getElementById('county-panel-count').textContent = 'Loading...';
+            document.getElementById('county-towns-list').innerHTML = '';
+            document.getElementById('county-panel').classList.add('open');
+
+            // Fetch county border polygon from Nominatim
+            let borderGeometry = null;
+            try {
+                const query = encodeURIComponent(`County ${countyName}, Ireland`);
+                const res = await fetch(
+                    `https://nominatim.openstreetmap.org/search?q=${query}&format=geojson&polygon_geojson=1&limit=1`,
+                    { headers: { 'Accept-Language': 'en' } }
+                );
+                const geojson = await res.json();
+                if (geojson.features && geojson.features.length > 0) {
+                    const feature = geojson.features[0];
+                    borderGeometry = feature.geometry;
+                    countyBorderLayer = L.geoJSON(feature, {
+                        style: { color: '#e67e22', weight: 2.5, opacity: 0.9, fillColor: '#e67e22', fillOpacity: 0.06 },
+                        pointToLayer: function() { return null; }
+                    }).addTo(map);
+                    map.fitBounds(countyBorderLayer.getBounds(), { padding: [40, 40] });
+                }
+            } catch (e) {
+                console.warn('County border fetch failed:', e);
+            }
+
+            if (!borderGeometry || !geoJsonLayer) {
+                document.getElementById('county-panel-count').textContent = 'Border unavailable';
+                return;
+            }
+
+            // Highlight all markers that fall inside the polygon
+            const matches = [];
+            geoJsonLayer.eachLayer(function(layer) {
+                if (!layer.getLatLng) return;
+                const ll = layer.getLatLng();
+                if (pointInGeometry(ll.lng, ll.lat, borderGeometry)) {
+                    matches.push(layer);
+                    layer.setStyle({ fillColor: '#e67e22', color: '#fff', weight: 1, radius: 8, fillOpacity: 0.95 });
+                    countyHighlightedLayers.push(layer);
+                }
+            });
+
+            // Sort alphabetically and populate list
+            matches.sort((a, b) =>
+                (a.feature.properties.name || '').localeCompare(b.feature.properties.name || '')
+            );
+
+            const listEl = document.getElementById('county-towns-list');
+            listEl.innerHTML = '';
+            matches.forEach(function(layer) {
+                const props = layer.feature.properties;
+                const item = document.createElement('div');
+                item.className = 'county-town-item';
+                item.innerHTML = `
+                    <div class="county-town-dot"></div>
+                    <span>${props.name || '?'}</span>
+                    <span class="county-town-type">${props.type || ''}</span>
+                `;
+                item.addEventListener('click', function() {
+                    map.flyTo(layer.getLatLng(), 13);
+                    map.once('moveend', function() { openPanel(layer); });
+                });
+                listEl.appendChild(item);
+            });
+
+            document.getElementById('county-panel-count').textContent =
+                `${matches.length} town${matches.length !== 1 ? 's' : ''}`;
+        }
+
+        document.getElementById('county-clear').addEventListener('click', clearCounty);
 
         // =====================================================================
         // Routing
