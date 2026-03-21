@@ -27,17 +27,20 @@ def get_data():
                 enriched_data = json.load(f)
         except Exception as e:
             print(f"Error loading checkpoint: {e}")
+            return jsonify({"error": f"Checkpoint file corrupted: {str(e)}"}), 404
 
     features = []
     with open(INPUT_CSV, mode='r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
             place_id = f"{row['name']}_{row['lat']}_{row['lon']}"
+=======
             
-            # Only include towns, cities, villages that have been enriched
-            if place_id in enriched_data:
+            # ONLY include places that are in the checkpoint
+            if place_id not in enriched_data:
+                continue
+            try:
                 culture = enriched_data[place_id]
-                
                 feature = {
                     "type": "Feature",
                     "geometry": {
@@ -46,13 +49,17 @@ def get_data():
                     },
                     "properties": {
                         "name": row['name'],
-                        "name_ga": row['name_ga'],
-                        "county": row['county'],
+                        "name_ga": row['name_ga'] or row['name'],
+                        "county": row['county'] or "Ireland",
                         "type": row['type'],
                         **culture
                     }
                 }
                 features.append(feature)
+            except Exception as e:
+                print(f"Error processing {row['name']}: {e}")
+                continue
+=======
     
     geojson = {
         "type": "FeatureCollection",

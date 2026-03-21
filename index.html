@@ -4,6 +4,732 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Craic? - Deep Culture Map of Ireland</title>
+=======
+
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; }
+        #map { height: 100vh; width: 100vw; }
+
+        /* Crisp tile rendering during zoom animation */
+        .leaflet-tile-container { will-change: transform; }
+        .leaflet-tile {
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+        }
+
+        /* --- Full-screen loading splash --- */
+        #loading-splash {
+            position: fixed;
+            inset: 0;
+            background: #1a5e3c;
+            z-index: 9000;
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
+            display: flex;
+            flex-direction: column;
+            transform: translateX(100%);
+            transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+        }
+        #place-panel.open { transform: translateX(0); }
+        #place-panel-header {
+            background: #1a5e3c;
+            color: #fff;
+            padding: 18px 24px 10px 24px;
+            border-bottom: 1px solid #e6e6e6;
+        }
+        #place-panel-header .place-name {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        #place-panel-header .place-meta {
+            font-size: 0.85rem;
+            color: rgba(255,255,255,0.7);
+        }
+        #place-panel-header .type-badge {
+            float: right;
+            background: #e67e22;
+            color: #fff;
+            font-size: 0.8rem;
+            border-radius: 6px;
+            padding: 2px 10px;
+            margin-left: 10px;
+        }
+        #place-panel-tabs {
+            display: flex;
+            border-bottom: 1.5px solid #e6e6e6;
+            background: #fff;
+        }
+        .panel-tab {
+            flex: 1;
+            text-align: center;
+            padding: 12px 0 10px 0;
+            font-weight: 600;
+            font-size: 1rem;
+            color: #1a5e3c;
+            cursor: pointer;
+            border: none;
+            background: none;
+            outline: none;
+            border-bottom: 2.5px solid transparent;
+            transition: border 0.15s;
+        }
+        .panel-tab.active {
+            border-bottom: 2.5px solid #e67e22;
+            color: #e67e22;
+        }
+        #place-panel-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 22px 24px 12px 24px;
+            background: #fff;
+            min-height: 0;
+            transition: opacity 0.1s;
+        }
+        .panel-section { display: none; }
+        .panel-section.active { display: block; animation: fadein 0.12s; }
+        @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+        #place-panel-footer {
+            padding: 16px 24px 18px 24px;
+            background: #f7f7f7;
+            border-top: 1px solid #e6e6e6;
+            font-size: 1.05rem;
+            color: #1a5e3c;
+            font-style: italic;
+            min-height: 48px;
+        }
+        #place-panel-close {
+            position: absolute;
+            top: 14px; right: 18px;
+            font-size: 1.5rem;
+            color: #fff;
+            background: none;
+            border: none;
+            cursor: pointer;
+            z-index: 10;
+        }
+        @media (max-width: 600px) {
+            #place-panel { width: 100vw; height: 65vh; bottom: 0; top: auto; right: 0; border-radius: 18px 18px 0 0; }
+        }
+        #search-results li {
+            padding: 10px 14px;
+            cursor: pointer;
+            font-size: 0.88rem;
+            border-bottom: 1px solid #f0f0f0;
+            color: #333;
+        }
+
+        #search-results li:last-child { border-bottom: none; }
+
+        #search-results li:hover,
+        #search-results li.active {
+            background: #e8f5e9;
+            color: #1a5e3c;
+        }
+
+        #search-results li .result-county {
+            font-size: 0.75rem;
+            color: #888;
+            margin-left: 6px;
+        }
+
+        #search-results li.no-results {
+            color: #999;
+            cursor: default;
+            font-style: italic;
+        }
+
+        #search-results li.no-results:hover { background: white; }
+
+        /* --- County Panel --- */
+        #county-panel {
+            position: absolute;
+            top: 70px;
+            left: 20px;
+            z-index: 1150;
+            width: 300px;
+            background: rgba(255,255,255,0.97);
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: none;
+            flex-direction: column;
+            max-height: calc(100vh - 100px);
+            overflow: hidden;
+        }
+
+        #county-panel.open { display: flex; }
+
+        #county-panel-header {
+            display: flex;
+            align-items: center;
+            padding: 10px 12px;
+            background: #e67e22;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        #county-panel-title {
+            font-weight: 700;
+            font-size: 0.95rem;
+            color: white;
+            flex: 1;
+        }
+
+        #county-panel-count {
+            font-size: 0.78rem;
+            color: rgba(255,255,255,0.8);
+        }
+
+        #county-clear {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
+            line-height: 1;
+            padding: 0 2px;
+            opacity: 0.8;
+        }
+
+        #county-clear:hover { opacity: 1; }
+
+        #county-towns-list {
+            overflow-y: auto;
+            padding: 6px 0;
+        }
+
+        .county-town-item {
+            display: flex;
+            align-items: center;
+            padding: 7px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            color: #333;
+            gap: 8px;
+            border-bottom: 1px solid #f5f5f5;
+        }
+
+        .county-town-item:last-child { border-bottom: none; }
+
+        .county-town-item:hover { background: #fff3e0; color: #e67e22; }
+
+        .county-town-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #e67e22;
+            flex-shrink: 0;
+        }
+
+        .county-town-type {
+            font-size: 0.7rem;
+            color: #aaa;
+            margin-left: auto;
+            text-transform: capitalize;
+        }
+
+        /* County suggestion in search dropdown */
+        #search-results li.county-suggestion {
+            background: #fff8f0;
+            border-left: 3px solid #e67e22;
+            color: #c96a10;
+            font-weight: 600;
+        }
+
+        #search-results li.county-suggestion:hover,
+        #search-results li.county-suggestion.active {
+            background: #ffe8cc;
+            color: #e67e22;
+        }
+
+        /* --- Route Panel --- */
+        #route-panel {
+            position: absolute;
+            top: 75px;
+            left: 20px;
+            z-index: 1000;
+            width: 300px;
+            background: rgba(255,255,255,0.95);
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .route-input-wrap {
+            position: relative;
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+
+        .route-pin {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.7rem;
+            font-weight: bold;
+            color: white;
+            flex-shrink: 0;
+            margin-right: 8px;
+        }
+
+        .from-pin { background: #1a5e3c; }
+        .to-pin   { background: #e67e22; }
+
+        .route-input {
+            flex: 1;
+            padding: 7px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.88rem;
+            font-family: inherit;
+            outline: none;
+            background: white;
+        }
+
+        .route-input:focus { border-color: #1a5e3c; }
+
+        /* When a place is confirmed, hide the input and show the chip */
+        .route-input-wrap.is-selected .route-input { display: none; }
+
+        .route-chip {
+            display: none;
+            flex: 1;
+            min-width: 0;
+            padding: 6px 10px;
+            background: #f0f7f4;
+            border: 1px solid #1a5e3c;
+            border-radius: 6px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .route-chip .chip-name {
+            display: block;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #1a5e3c;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .route-chip .chip-county {
+            display: block;
+            font-size: 0.72rem;
+            font-weight: 400;
+            color: #5a9a76;
+            margin-top: 1px;
+        }
+
+        .route-input-wrap.is-selected .route-chip { display: block; }
+
+        .route-selected-clear {
+            display: none;
+            background: none;
+            border: none;
+            color: #aaa;
+            font-size: 0.9rem;
+            cursor: pointer;
+            padding: 0 4px;
+            line-height: 1;
+            flex-shrink: 0;
+        }
+
+        .route-input-wrap.is-selected .route-selected-clear { display: block; }
+        .route-selected-clear:hover { color: #e67e22; }
+
+        .route-results-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            background: white;
+            border-radius: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            overflow: hidden;
+            display: none;
+            position: absolute;
+            top: calc(100% + 2px);
+            left: 30px;
+            right: 0;
+            z-index: 1100;
+        }
+
+        .route-results-list li {
+            padding: 8px 12px;
+            cursor: pointer;
+            font-size: 0.85rem;
+            border-bottom: 1px solid #f0f0f0;
+            color: #333;
+        }
+
+        .route-results-list li:last-child { border-bottom: none; }
+
+        .route-results-list li:hover,
+        .route-results-list li.active {
+            background: #e8f5e9;
+            color: #1a5e3c;
+        }
+
+        .route-results-list li .result-county {
+            font-size: 0.72rem;
+            color: #888;
+            margin-left: 6px;
+        }
+
+        #clear-route {
+            width: 100%;
+            margin-top: 4px;
+            padding: 6px;
+            background: none;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #666;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        #clear-route:hover { background: #fef2f2; border-color: #e67e22; color: #e67e22; }
+
+        #route-summary {
+            margin-top: 8px;
+            padding: 6px 8px;
+            background: #f0f7f4;
+            border-radius: 6px;
+            font-size: 0.8rem;
+            color: #1a5e3c;
+            font-weight: 500;
+        }
+
+        .route-town-item {
+            display: flex;
+            align-items: center;
+            padding: 3px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.82rem;
+            color: #333;
+            gap: 8px;
+            position: relative;
+        }
+
+        .route-town-item:hover { background: #e8f5e9; color: #1a5e3c; }
+
+        /* Vertical connector line between dots */
+        .route-town-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 12px;
+            top: 18px;
+            width: 2px;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 1px;
+            transition: background 0.3s;
+        }
+
+        /* Line turns orange once that stop is done */
+        .route-town-item.tour-done:not(:last-child)::after {
+            background: #e67e22;
+        }
+
+        .route-town-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #ddd;  /* grey by default */
+            flex-shrink: 0;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        /* Visited dots go orange */
+        .route-town-item.tour-done .route-town-dot {
+            background: #e67e22;
+        }
+
+        .route-town-county {
+            font-size: 0.72rem;
+            color: #888;
+            margin-left: auto;
+        }
+
+        .route-town-item.tour-active {
+            background: #fff3e0;
+            color: #e67e22;
+            font-weight: 600;
+        }
+
+        /* Active dot: green pulse */
+        .route-town-item.tour-active .route-town-dot {
+            background: #1a5e3c;
+            box-shadow: 0 0 0 3px rgba(26,94,60,0.25);
+        }
+
+        /* Not-yet-visited dots stay grey, line stays grey (default) */
+
+        #tour-btn, #tour-stop-btn {
+            width: 100%;
+            margin-top: 6px;
+            padding: 8px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.85rem;
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+        }
+
+        #tour-btn {
+            background: #1a5e3c;
+            color: white;
+        }
+
+        #tour-btn:hover { background: #145030; }
+
+        #tour-stop-btn {
+            background: #e67e22;
+            color: white;
+            display: none;
+        }
+
+        #tour-stop-btn:hover { background: #cf6d17; }
+
+        /* --- Town Panel --- */
+        #town-panel {
+            position: fixed;
+            top: 0;
+            right: -380px;
+            width: 360px;
+            height: 100vh;
+            background: #ffffff;
+            box-shadow: -4px 0 20px rgba(0,0,0,0.12);
+            z-index: 3000;
+            display: flex;
+            flex-direction: column;
+            transition: right 0.28s ease;
+            overflow: hidden;
+        }
+
+        #town-panel.open { right: 0; }
+
+        .tp-header {
+            background: #1a5e3c;
+            padding: 14px 16px 14px;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .tp-header-actions {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .tp-close, .tp-next-btn {
+            background: none;
+            border: none;
+            color: rgba(255,255,255,0.85);
+            font-size: 1rem;
+            font-family: inherit;
+            font-weight: 600;
+            cursor: pointer;
+            padding: 3px 8px;
+            border-radius: 4px;
+            line-height: 1;
+        }
+
+        .tp-close { font-size: 1.3rem; }
+        .tp-close:hover, .tp-next-btn:hover { color: white; background: rgba(255,255,255,0.15); }
+
+        .tp-type-badge {
+            background: rgba(255,255,255,0.2);
+            color: rgba(255,255,255,0.85);
+            font-size: 0.68rem;
+            padding: 2px 8px;
+            border-radius: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .tp-name {
+            color: white;
+            font-size: 1.6rem;
+            font-weight: bold;
+            line-height: 1.2;
+            margin-bottom: 4px;
+        }
+
+        .tp-sub {
+            color: rgba(255,255,255,0.7);
+            font-size: 0.85rem;
+        }
+
+        .tp-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 0 8px;
+        }
+
+        .tp-section {
+            padding: 14px 16px 12px;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        .tp-section:last-child { border-bottom: none; }
+
+        .tp-section-header {
+            font-size: 0.68rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #e67e22;
+            margin-bottom: 10px;
+        }
+
+        /* Lore */
+        .tp-lore-text {
+            font-size: 0.95rem;
+            line-height: 1.65;
+            color: #222;
+            margin: 0;
+            padding-left: 14px;
+            border-left: 3px solid #c8e6c9;
+        }
+
+        /* Roots */
+        .tp-irish-name {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #1a5e3c;
+            margin: 0 0 6px;
+        }
+
+        .tp-meaning {
+            font-size: 0.9rem;
+            color: #444;
+            margin: 0 0 8px;
+            line-height: 1.5;
+        }
+
+        .tp-origin {
+            font-size: 0.82rem;
+            color: #888;
+            font-style: italic;
+            margin: 0;
+        }
+
+        /* GAA */
+        .tp-gaa-club {
+            font-size: 1.05rem;
+            font-weight: 600;
+            color: #222;
+            margin: 0 0 10px;
+        }
+
+        .tp-gaa-swatches {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+
+        .tp-gaa-swatch {
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.15);
+            flex-shrink: 0;
+        }
+
+        .tp-gaa-colour-label {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .tp-gaa-legends {
+            font-size: 0.85rem;
+            color: #555;
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        /* Gem */
+        .tp-gem-callout {
+            background: #f0f7f4;
+            border-left: 3px solid #1a5e3c;
+            border-radius: 0 6px 6px 0;
+            padding: 12px 14px;
+            font-size: 0.9rem;
+            font-style: italic;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        /* Empty states */
+        .tp-empty {
+            color: #bbb;
+            font-style: italic;
+            font-size: 0.88rem;
+            margin: 0;
+        }
+
+        /* Footer */
+        .tp-footer {
+            padding: 10px 16px;
+            background: #fafafa;
+            border-top: 1px solid #eee;
+            font-size: 0.82rem;
+            color: #777;
+            font-style: italic;
+            flex-shrink: 0;
+            min-height: 38px;
+        }
+
+        /* Selected marker label */
+        .tp-marker-label {
+            background: white;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            color: #1a5e3c;
+            white-space: nowrap;
+            pointer-events: none;
+        }
+
+        .tp-marker-label::before { display: none; }
+
+        /* Mobile bottom sheet */
+        @media (max-width: 640px) {
+            #town-panel {
+                top: auto;
+                bottom: -70vh;
+                right: 0;
+                width: 100%;
+                height: 65vh;
+                border-radius: 16px 16px 0 0;
+                box-shadow: 0 -4px 20px rgba(0,0,0,0.15);
+                transition: bottom 0.28s ease;
+            }
+            #town-panel.open {
+                bottom: 0;
+                right: 0;
+            }
+<<<<<<< HEAD
+=======
     
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -77,315 +803,344 @@
             font-size: 1.2rem;
             color: #1a5e3c;
             font-weight: bold;
-        }
-
-        #search-container {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 1000;
-            width: 300px;
-        }
-
-        #search-input {
-            width: 100%;
-            box-sizing: border-box;
-            padding: 10px 14px;
-            border: none;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            font-size: 0.95rem;
-            font-family: inherit;
-            outline: none;
-            background: rgba(255,255,255,0.95);
-        }
-
-        #search-input:focus {
-            box-shadow: 0 0 0 2px #1a5e3c, 0 4px 6px rgba(0,0,0,0.1);
-        }
-
-        #search-results {
-            list-style: none;
-            margin: 4px 0 0;
-            padding: 0;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            overflow: hidden;
-            display: none;
-        }
-
-        #search-results li {
-            padding: 10px 14px;
-            cursor: pointer;
-            font-size: 0.88rem;
-            border-bottom: 1px solid #f0f0f0;
-            color: #333;
-        }
-
-        #search-results li:last-child { border-bottom: none; }
-
-        #search-results li:hover,
-        #search-results li.active {
-            background: #e8f5e9;
-            color: #1a5e3c;
-        }
-
-        #search-results li .result-county {
-            font-size: 0.75rem;
-            color: #888;
-            margin-left: 6px;
-        }
-
-        #search-results li.no-results {
-            color: #999;
-            cursor: default;
-            font-style: italic;
-        }
-
-        #search-results li.no-results:hover { background: white; }
-
-        /* --- Route Panel --- */
-        #route-panel {
-            position: absolute;
-            top: 75px;
-            left: 20px;
-            z-index: 1000;
-            width: 300px;
-            background: rgba(255,255,255,0.95);
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            padding: 10px;
-            box-sizing: border-box;
-        }
-
-        .route-input-wrap {
-            position: relative;
-            display: flex;
-            align-items: center;
-            margin-bottom: 6px;
-        }
-
-        .route-pin {
-            width: 22px;
-            height: 22px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-            font-weight: bold;
-            color: white;
-            flex-shrink: 0;
-            margin-right: 8px;
-        }
-
-        .from-pin { background: #1a5e3c; }
-        .to-pin   { background: #e67e22; }
-
-        .route-input {
-            flex: 1;
-            padding: 7px 10px;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 0.88rem;
-            font-family: inherit;
-            outline: none;
-            background: white;
-        }
-
-        .route-input:focus { border-color: #1a5e3c; }
-
-        .route-results-list {
-            list-style: none;
-            margin: 0;
-            padding: 0;
-            background: white;
-            border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-            overflow: hidden;
-            display: none;
-            position: absolute;
-            top: calc(100% + 2px);
-            left: 30px;
-            right: 0;
-            z-index: 1100;
-        }
-
-        .route-results-list li {
-            padding: 8px 12px;
-            cursor: pointer;
-            font-size: 0.85rem;
-            border-bottom: 1px solid #f0f0f0;
-            color: #333;
-        }
-
-        .route-results-list li:last-child { border-bottom: none; }
-
-        .route-results-list li:hover,
-        .route-results-list li.active {
-            background: #e8f5e9;
-            color: #1a5e3c;
-        }
-
-        .route-results-list li .result-county {
-            font-size: 0.72rem;
-            color: #888;
-            margin-left: 6px;
-        }
-
-        #clear-route {
-            width: 100%;
-            margin-top: 4px;
-            padding: 6px;
-            background: none;
-            border: 1px solid #ddd;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            color: #666;
-            cursor: pointer;
-            font-family: inherit;
-        }
-
-        #clear-route:hover { background: #fef2f2; border-color: #e67e22; color: #e67e22; }
-
-        #route-summary {
-            margin-top: 8px;
-            padding: 6px 8px;
-            background: #f0f7f4;
-            border-radius: 6px;
-            font-size: 0.8rem;
-            color: #1a5e3c;
-            font-weight: 500;
-        }
-
-        #route-towns {
-            margin-top: 6px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
-        .route-town-item {
-            display: flex;
-            align-items: center;
-            padding: 6px 8px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 0.82rem;
-            color: #333;
-            gap: 8px;
-        }
-
-        .route-town-item:hover { background: #e8f5e9; color: #1a5e3c; }
-
-        .route-town-dot {
-            width: 10px;
-            height: 10px;
-            border-radius: 50%;
-            background: #e67e22;
-            flex-shrink: 0;
-        }
-
-        .route-town-county {
-            font-size: 0.72rem;
-            color: #888;
-            margin-left: auto;
+>>>>>>> main
+=======
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
         }
     </style>
 </head>
 <body>
 
-    <div class="map-header">
-        <p id="stats">Enriching towns and villages...</p>
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
+    <div id="loading-splash">
+        <h1>Craic?</h1>
+        <p>Deep culture map of Ireland</p>
+        <div id="loading-track"><div id="loading-fill"></div></div>
+        <div id="loading-status">Loading towns...</div>
     </div>
-    
+
     <div id="search-container">
         <input id="search-input" type="text" placeholder="🔍 Search places...">
         <ul id="search-results"></ul>
     </div>
 
+    <div id="county-panel">
+        <div id="county-panel-header">
+            <span id="county-panel-title"></span>
+            <span id="county-panel-count"></span>
+            <button id="county-clear">×</button>
+        </div>
+        <div id="county-towns-list"></div>
+    </div>
+
     <div id="route-panel">
         <div id="route-inputs">
-            <div class="route-input-wrap">
+            <div class="route-input-wrap" id="from-wrap">
                 <span class="route-pin from-pin">A</span>
                 <input id="from-input" class="route-input" type="text" placeholder="From...">
+                <div class="route-chip" id="from-chip"></div>
+                <button class="route-selected-clear" id="from-clear" tabindex="-1">×</button>
                 <ul id="from-results" class="route-results-list"></ul>
             </div>
-            <div class="route-input-wrap">
+            <div class="route-input-wrap" id="to-wrap">
                 <span class="route-pin to-pin">B</span>
                 <input id="to-input" class="route-input" type="text" placeholder="To...">
+                <div class="route-chip" id="to-chip"></div>
+                <button class="route-selected-clear" id="to-clear" tabindex="-1">×</button>
                 <ul id="to-results" class="route-results-list"></ul>
             </div>
             <button id="clear-route">✕ Clear route</button>
         </div>
         <div id="route-summary" style="display:none"></div>
         <div id="route-towns" style="display:none"></div>
+        <button id="tour-btn" style="display:none">▶ Play Town Tour</button>
+        <button id="tour-stop-btn">⏹ Stop Tour</button>
     </div>
 
+    <!-- Town info panel -->
+    <div id="town-panel">
+        <div class="tp-header">
+            <div class="tp-header-actions">
+                <button class="tp-close" id="tp-close">×</button>
+                <button class="tp-next-btn" id="tp-next" style="display:none">Next →</button>
+                <div class="tp-type-badge" id="tp-type"></div>
+            </div>
+            <div class="tp-name" id="tp-name"></div>
+            <div class="tp-sub" id="tp-sub"></div>
+        </div>
+        <div class="tp-body">
+            <div class="tp-section">
+                <div class="tp-section-header">Lore</div>
+                <div id="tp-lore"></div>
+            </div>
+            <div class="tp-section">
+                <div class="tp-section-header">Roots</div>
+                <div id="tp-roots"></div>
+            </div>
+            <div class="tp-section">
+                <div class="tp-section-header">GAA</div>
+                <div id="tp-gaa"></div>
+            </div>
+            <div class="tp-section">
+                <div class="tp-section-header">Hidden Gem</div>
+                <div id="tp-gem"></div>
+            </div>
+        </div>
+        <div class="tp-footer" id="tp-footer"></div>
+    </div>
+
+<<<<<<< HEAD
+=======
+    <div class="map-header">
+        <h1>☘️ Craic? Deep Culture Map</h1>
+        <p id="stats">Enriching towns and villages...</p>
+    </div>
+    
     <div id="loading" class="loading-overlay">Loading Ireland's stories...</div>
+>>>>>>> main
+=======
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
     <div id="map"></div>
+    <div id="place-panel">
+        <div id="place-panel-header">
+            <button id="place-panel-close" title="Close">&times;</button>
+            <div class="place-name" id="panel-place-name"></div>
+            <div class="place-meta"><span id="panel-place-irish"></span> &middot; <span id="panel-place-county"></span><span class="type-badge" id="panel-place-type"></span></div>
+        </div>
+        <div id="place-panel-tabs">
+            <button class="panel-tab active" data-tab="lore">LORE</button>
+            <button class="panel-tab" data-tab="roots">ROOTS</button>
+            <button class="panel-tab" data-tab="gaa">GAA</button>
+            <button class="panel-tab" data-tab="gem">GEM</button>
+        </div>
+        <div id="place-panel-content">
+            <div class="panel-section" id="panel-section-lore"></div>
+            <div class="panel-section" id="panel-section-roots"></div>
+            <div class="panel-section" id="panel-section-gaa"></div>
+            <div class="panel-section" id="panel-section-gem"></div>
+        </div>
+        <div id="place-panel-footer"></div>
+    </div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
     <script>
         // Initialize map
-        const map = L.map('map', { zoomControl: false }).setView([53.3498, -7.2604], 7); // Center of Ireland
+        const map = L.map('map', { zoomControl: false }).setView([53.3498, -7.2604], 7);
         L.control.zoom({ position: 'topright' }).addTo(map);
-        
-        // Add tile layer (Stadia Alidade Smooth is nice and clean)
+<<<<<<< HEAD
+=======
+
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
         L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
             maxZoom: 20,
+            maxNativeZoom: 20,
+            detectRetina: true,
+            keepBuffer: 4,
             attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        // Function to create popup content
-        function createPopup(props) {
-            const etymology = props.etymology
-                ? (typeof props.etymology === 'string' ? props.etymology : (props.etymology.meaning || props.etymology.origin || ''))
-                : '';
-            const historyLandmarks = props.history_landmarks
-                ? (Array.isArray(props.history_landmarks) ? props.history_landmarks.join(', ') : (props.history_landmarks.events || props.history_landmarks.ruins || props.history_landmarks))
-                : '';
-            const gaaClub = props.gaa_heritage
-                ? (props.gaa_heritage.club_name || props.gaa_heritage.club || '')
-                : '';
-            const gaaColors = props.gaa_heritage
-                ? (Array.isArray(props.gaa_heritage.colors) ? props.gaa_heritage.colors.join('/') : (props.gaa_heritage.colors || ''))
-                : '';
-            const hiddenGem = props.hidden_gem
-                ? (props.hidden_gem.spot || props.hidden_gem)
-                : '';
-            const localPhrase = props.local_phrase
-                ? `<em>"${props.local_phrase.phrase}"</em> - ${props.local_phrase.meaning}`
-                : '';
+<<<<<<< HEAD
+        // Color mapping for GAA swatches
+=======
+        // =====================================================================
+        // Town Panel
+        // =====================================================================
 
-            let html = `
-                <div class="popup-content">
-                    <h3>${props.name}</h3>
-                    <div style="margin-bottom: 10px;">
-                        <span class="tag">${props.type}</span>
-                        <span class="tag">${props.county || 'Ireland'}</span>
-                    </div>
+        let activePanelLayer = null;
 
-                    <h4>📜 Etymology</h4>
-                    <p><strong>${props.name_ga || ''}</strong>: ${etymology}</p>
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
+        const COLOR_MAP = {
+            'green': '#2e7d32', 'dark green': '#1a5e3c', 'light green': '#81c784',
+            'emerald': '#009b77', 'emerald green': '#009b77', 'bottle green': '#006a4e',
+            'red': '#c62828', 'dark red': '#8b0000', 'maroon': '#7b0d1e',
+            'cardinal red': '#9b2335', 'blood red': '#8b0000', 'scarlet': '#cc2200',
+            'blue': '#1565c0', 'dark blue': '#0d3b6e', 'light blue': '#64b5f6',
+            'sky blue': '#87ceeb', 'royal blue': '#2563c4', 'navy': '#001f5b', 'navy blue': '#001f5b',
+            'yellow': '#f9a825', 'gold': '#c9a84c', 'golden': '#c9a84c', 'amber': '#ffbf00',
+            'saffron': '#ff9900', 'primrose': '#f0e080', 'lemon': '#f5e642',
+            'white': '#eeeeee', 'black': '#1a1a1a',
+            'orange': '#e65100', 'burnt orange': '#bf5700',
+            'purple': '#6a1b9a', 'violet': '#7f00ff', 'magenta': '#c2185b',
+            'grey': '#888888', 'gray': '#888888', 'silver': '#bdbdbd',
+            'brown': '#5d4037', 'claret': '#7b1034', 'wine': '#722f37',
+            'pink': '#e91e8c', 'cream': '#f5f0dc', 'cardinal': '#9b2335',
+        };
+<<<<<<< HEAD
+=======
 
-                    <h4>👻 Folklore & Myth</h4>
-                    <p>${props.folklore_myth || ''}</p>
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
+        function colorToCSS(name) {
+            return COLOR_MAP[(name || '').toLowerCase().trim()] || '#999999';
+        }
 
-                    <h4>🏛️ History & Landmarks</h4>
-                    <p>${historyLandmarks}</p>
+<<<<<<< HEAD
+        // Panel logic
+        function openPlacePanel(props) {
+            // Header
+            document.getElementById('panel-place-name').textContent = props.name || '';
+            document.getElementById('panel-place-irish').textContent = props.name_ga || '';
+            document.getElementById('panel-place-county').textContent = props.county || '';
+            document.getElementById('panel-place-type').textContent = props.type || '';
 
-                    <h4>🏆 GAA Heritage</h4>
-                    <p>${gaaClub} (${gaaColors})</p>
+                        // Tabs
+                        // LORE
+                        document.getElementById('panel-section-lore').innerHTML = props.folklore_myth
+                            ? `<div style="font-size:1.05rem;line-height:1.6;color:#222;padding-left:10px;border-left:3px solid #c8e6c9;">${props.folklore_myth}</div>`
+                            : `<div style="color:#bbb;font-style:italic;">No folklore recorded for this place.</div>`;
+                        // ROOTS
+                        const etym = props.etymology;
+                        const irishName = props.name_ga || '';
+                        let meaning = '', origin = '';
+                        if (etym) {
+                            if (typeof etym === 'string') { meaning = etym; }
+                            else { meaning = etym.meaning || ''; origin = etym.origin || ''; }
+                        }
+                        document.getElementById('panel-section-roots').innerHTML = (irishName || meaning || origin)
+                            ? `${irishName ? `<div style='font-size:1.2rem;font-weight:bold;color:#1a5e3c;'>${irishName}</div>` : ''}
+                               ${meaning ? `<div style='font-size:0.95rem;color:#444;margin-bottom:6px;'>${meaning}</div>` : ''}
+                               ${origin ? `<div style='font-size:0.85rem;color:#888;font-style:italic;'>${origin}</div>` : ''}`
+                            : `<div style='color:#bbb;font-style:italic;'>No etymology recorded.</div>`;
+                        // GAA
+                        const gaa = props.gaa_heritage;
+                        if (gaa) {
+                            const clubName = gaa.club_name || gaa.club || '';
+                            const rawColors = Array.isArray(gaa.colors)
+                                ? gaa.colors
+                                : (gaa.colors ? String(gaa.colors).split(/\s+and\s+|\s*[,/&]\s*/).map(s => s.trim()).filter(Boolean) : []);
+                            const legends = gaa.legends || gaa.notable_players || '';
+                            const swatchesHtml = rawColors.map(c =>
+                                `<div style='display:inline-block;width:22px;height:22px;border-radius:50%;border:1px solid #ccc;margin-right:6px;background:${colorToCSS(c)}' title='${c}'></div>`
+                            ).join('');
+                            const colourLabel = rawColors.length ? `<span style='font-size:0.85rem;color:#666;'>${rawColors.join(' & ')}</span>` : '';
+                            document.getElementById('panel-section-gaa').innerHTML = `
+                                ${clubName ? `<div style='font-size:1.05rem;font-weight:600;color:#222;'>${clubName}</div>` : ''}
+                                ${rawColors.length ? `<div style='margin-bottom:8px;'>${swatchesHtml}${colourLabel}</div>` : ''}
+                                ${legends ? `<div style='font-size:0.9rem;color:#555;'>${Array.isArray(legends) ? legends.join(', ') : legends}</div>` : ''}
+                                ${!clubName && !rawColors.length ? '<div style="color:#bbb;font-style:italic;">No GAA data for this place.</div>' : ''}
+                            `;
+                        } else {
+                            document.getElementById('panel-section-gaa').innerHTML = '<div style="color:#bbb;font-style:italic;">No GAA data for this place.</div>';
+                        }
+                        // GEM
+                        const gem = props.hidden_gem;
+                        document.getElementById('panel-section-gem').innerHTML = gem
+                            ? `<div style='background:#f0f7f4;border-left:3px solid #1a5e3c;border-radius:0 6px 6px 0;padding:12px 14px;font-size:0.95rem;font-style:italic;color:#333;line-height:1.6;'>${gem.spot || gem}</div>`
+                            : `<div style='color:#bbb;font-style:italic;'>No hidden gem recorded.</div>`;
 
+                        // Footer — local phrase
+                        const phrase = props.local_phrase;
+                        document.getElementById('place-panel-footer').innerHTML = (phrase && phrase.phrase)
+                            ? `<em>"${phrase.phrase}"</em> — ${phrase.meaning}`
+                            : `<em>Slán go fóill</em> — Goodbye for now.`;
+
+                        // Show panel, default to LORE tab
+                        document.getElementById('place-panel').classList.add('open');
+                        setActivePanelTab('lore');
+                    }
+
+                    function closePlacePanel() {
+                        document.getElementById('place-panel').classList.remove('open');
+                    }
+
+                    // Tab switching
+                    function setActivePanelTab(tab) {
+                        document.querySelectorAll('.panel-tab').forEach(btn => {
+                            btn.classList.toggle('active', btn.dataset.tab === tab);
+                        });
+                        document.querySelectorAll('.panel-section').forEach(sec => {
+                            sec.classList.toggle('active', sec.id === 'panel-section-' + tab);
+                        });
+                    }
+                    document.querySelectorAll('.panel-tab').forEach(btn => {
+                        btn.addEventListener('click', function() {
+                            setActivePanelTab(this.dataset.tab);
+                        });
+                    });
+                    document.getElementById('place-panel-close').addEventListener('click', closePlacePanel);
+                    map.on('click', closePlacePanel);
+                    document.addEventListener('keydown', function(e) {
+                        if (e.key === 'Escape') closePlacePanel();
+                    });
+
+                    // Data loading and marker logic
+                    let geoJsonLayer = null;
+                    let barTimer = null;
+                    let splashDone = false;
+                    function startLoadingBar() {
+                        let pct = 0;
+                        clearInterval(barTimer);
+                        barTimer = setInterval(function() {
+                            pct += (85 - pct) * 0.07;
+                            document.getElementById('loading-fill').style.width = pct + '%';
+                        }, 80);
+                    }
+                    function finishLoadingBar(count) {
+                        clearInterval(barTimer);
+                        document.getElementById('loading-fill').style.width = '100%';
+                        document.getElementById('loading-status').textContent = `${count} towns loaded`;
+                        setTimeout(function() {
+                            const splash = document.getElementById('loading-splash');
+                            splash.classList.add('fade-out');
+                            setTimeout(function() { splash.style.display = 'none'; }, 650);
+                            splashDone = true;
+                        }, 600);
+                    }
+                    async function loadData() {
+                        try {
+                            startLoadingBar();
+                            const response = await fetch('/data');
+                            const data = await response.json();
+                            finishLoadingBar(data.features.length);
+                            if (geoJsonLayer) {
+                                geoJsonLayer.clearLayers();
+                                geoJsonLayer.addData(data);
+                            } else {
+                                geoJsonLayer = L.geoJSON(data, {
+                                    pointToLayer: function(feature, latlng) {
+                                        return L.circleMarker(latlng, {
+                                            radius: feature.properties.type === 'city' ? 8 : 6,
+                                            fillColor: '#1a5e3c',
+                                            color: '#fff',
+                                            weight: 1,
+                                            opacity: 1,
+                                            fillOpacity: 0.8
+                                        });
+                                    },
+                                    onEachFeature: function(feature, layer) {
+                                        layer.on('click', function(e) {
+                                            L.DomEvent.stopPropagation(e);
+                                            openPlacePanel(feature.properties);
+                                        });
+                                    }
+                                }).addTo(map);
+                            }
+                        } catch (err) {
+                            console.error('Error loading data:', err);
+                            clearInterval(barTimer);
+                            document.getElementById('loading-fill').style.background = '#e74c3c';
+                            document.getElementById('loading-fill').style.width = '100%';
+                            document.getElementById('loading-status').textContent = 'Failed to load — is the server running?';
+                        }
+                    }
+                    loadData();
+                    // ...existing code...
+                    </script>
+                    
                     <h4>✨ Hidden Gem</h4>
                     <p>${hiddenGem}</p>
-
-                    <h4>🗣️ Local Phrase</h4>
-                    <p>${localPhrase}</p>
-
+                    
+                    <h4>☘️ Irish Proverb (Seanfhocail)</h4>
+                    <p><em>"${seanfhocailIrish}"</em></p>
+                    <p style="font-size: 0.9rem; color: #555; margin-top: 5px;">${seanfhocailEnglish}</p>
+                    
                     <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(props.multimedia_query || props.name)}" target="_blank" class="multimedia-link">
                         🎵 Hear the Sound of ${props.name}
                     </a>
@@ -395,16 +1150,211 @@
         }
 
         // Fetch data
+        async function loadData() {
+            try {
+                console.log("Fetching data from /data endpoint...");
+                const response = await fetch('/data');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log("Successfully loaded " + data.features.length + " places");
+                
+                if (!data.features || data.features.length === 0) {
+                    document.getElementById('loading').style.display = 'none';
+                    document.getElementById('stats').innerText = "No enriched data yet. Run enrich_ireland_culture.py first.";
+                    console.warn("No features found in GeoJSON response");
+                    return;
+                }
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('stats').innerText = `Loaded ${data.features.length} enriched places.`;
+                
+=======
+        function updatePanelTourState() {
+            document.getElementById('tp-close').style.display = tourActive ? 'none' : '';
+            document.getElementById('tp-next').style.display = tourActive ? '' : 'none';
+        }
+
+        function openPanel(layer) {
+            if (!layer || !layer.feature) return;
+            const props = layer.feature.properties;
+
+            // Reset previous marker ring and label
+            if (activePanelLayer && activePanelLayer !== layer) {
+                const prevProps = activePanelLayer.feature ? activePanelLayer.feature.properties : {};
+                const prevCity = prevProps.type === 'city';
+                const prevOnRoute = highlightedLayers.includes(activePanelLayer);
+                activePanelLayer.setStyle({
+                    fillColor: prevOnRoute ? '#e67e22' : '#1a5e3c',
+                    color: '#fff',
+                    weight: 1,
+                    radius: prevCity ? 8 : 6
+                });
+                activePanelLayer.unbindTooltip();
+            }
+
+            activePanelLayer = layer;
+
+            // Highlight ring on this marker
+            const isCity = props.type === 'city';
+            layer.setStyle({
+                color: '#e67e22',
+                weight: 3,
+                radius: (isCity ? 8 : 6) + 2
+            });
+
+            // Show town name label below the marker
+            layer.unbindTooltip();
+            layer.bindTooltip(props.name, {
+                permanent: true,
+                direction: 'bottom',
+                offset: [0, 6],
+                className: 'tp-marker-label'
+            }).openTooltip();
+
+            // Header
+            document.getElementById('tp-name').textContent = props.name || '';
+            document.getElementById('tp-type').textContent = props.type || '';
+            const subParts = [props.name_ga, props.county ? `County ${props.county}` : ''].filter(Boolean);
+            document.getElementById('tp-sub').textContent = subParts.join('  ·  ');
+
+            // LORE tab
+            const loreEl = document.getElementById('tp-lore');
+            loreEl.innerHTML = props.folklore_myth
+                ? `<p class="tp-lore-text">${props.folklore_myth}</p>`
+                : `<p class="tp-empty">No folklore recorded for this place.</p>`;
+
+            // ROOTS tab
+            const rootsEl = document.getElementById('tp-roots');
+            const etym = props.etymology;
+            const irishName = props.name_ga || '';
+            let meaning = '', origin = '';
+            if (etym) {
+                if (typeof etym === 'string') { meaning = etym; }
+                else { meaning = etym.meaning || ''; origin = etym.origin || ''; }
+            }
+            rootsEl.innerHTML = (irishName || meaning || origin)
+                ? `${irishName ? `<p class="tp-irish-name">${irishName}</p>` : ''}
+                   ${meaning ? `<p class="tp-meaning">${meaning}</p>` : ''}
+                   ${origin ? `<p class="tp-origin">${origin}</p>` : ''}`
+                : `<p class="tp-empty">No etymology recorded.</p>`;
+
+            // GAA tab
+            const gaaEl = document.getElementById('tp-gaa');
+            const gaa = props.gaa_heritage;
+            if (gaa) {
+                const clubName = gaa.club_name || gaa.club || '';
+                const rawColors = Array.isArray(gaa.colors)
+                    ? gaa.colors
+                    : (gaa.colors ? String(gaa.colors).split(/\s+and\s+|\s*[,/&]\s*/).map(s => s.trim()).filter(Boolean) : []);
+                const legends = gaa.legends || gaa.notable_players || '';
+                const swatchesHtml = rawColors.map(c =>
+                    `<div class="tp-gaa-swatch" style="background:${colorToCSS(c)}" title="${c}"></div>`
+                ).join('');
+                const colourLabel = rawColors.length ? `<span class="tp-gaa-colour-label">${rawColors.join(' & ')}</span>` : '';
+                gaaEl.innerHTML = `
+                    ${clubName ? `<p class="tp-gaa-club">${clubName}</p>` : ''}
+                    ${rawColors.length ? `<div class="tp-gaa-swatches">${swatchesHtml}${colourLabel}</div>` : ''}
+                    ${legends ? `<p class="tp-gaa-legends">${Array.isArray(legends) ? legends.join(', ') : legends}</p>` : ''}
+                    ${!clubName && !rawColors.length ? '<p class="tp-empty">No GAA data for this place.</p>' : ''}
+                `;
+            } else {
+                gaaEl.innerHTML = '<p class="tp-empty">No GAA data for this place.</p>';
+            }
+
+            // GEM tab
+            const gemEl = document.getElementById('tp-gem');
+            const gem = props.hidden_gem;
+            gemEl.innerHTML = gem
+                ? `<div class="tp-gem-callout">${gem.spot || gem}</div>`
+                : `<p class="tp-empty">No hidden gem recorded.</p>`;
+
+            // Footer — local phrase
+            const footerEl = document.getElementById('tp-footer');
+            const phrase = props.local_phrase;
+            footerEl.innerHTML = (phrase && phrase.phrase)
+                ? `<em>"${phrase.phrase}"</em> — ${phrase.meaning}`
+                : `<em>Slán go fóill</em> — Goodbye for now.`;
+
+            updatePanelTourState();
+
+            document.getElementById('town-panel').classList.add('open');
+        }
+
+        function closePanel() {
+            document.getElementById('town-panel').classList.remove('open');
+            if (activePanelLayer) {
+                const props = activePanelLayer.feature ? activePanelLayer.feature.properties : {};
+                const isCity = props.type === 'city';
+                const isOnRoute = highlightedLayers.includes(activePanelLayer);
+                activePanelLayer.setStyle({
+                    fillColor: isOnRoute ? '#e67e22' : '#1a5e3c',
+                    color: '#fff',
+                    weight: 1,
+                    radius: isCity ? 8 : 6
+                });
+                activePanelLayer.unbindTooltip();
+                activePanelLayer = null;
+            }
+        }
+
+        // Close button
+        document.getElementById('tp-close').addEventListener('click', function() {
+            if (tourActive) stopTour();
+            closePanel();
+        });
+
+        // Escape closes panel (but not during tour)
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (tourActive) stopTour();
+                closePanel();
+            }
+        });
+
+        // Click outside panel on map closes it
+        map.on('click', closePanel);
+
+        // =====================================================================
+        // Data loading
+        // =====================================================================
         let geoJsonLayer = null;
+
+        let barTimer = null;
+        let splashDone = false;
+
+        function startLoadingBar() {
+            let pct = 0;
+            clearInterval(barTimer);
+            barTimer = setInterval(function() {
+                pct += (85 - pct) * 0.07;
+                document.getElementById('loading-fill').style.width = pct + '%';
+            }, 80);
+        }
+
+        function finishLoadingBar(count) {
+            clearInterval(barTimer);
+            document.getElementById('loading-fill').style.width = '100%';
+            document.getElementById('loading-status').textContent = `${count} towns loaded`;
+            setTimeout(function() {
+                const splash = document.getElementById('loading-splash');
+                splash.classList.add('fade-out');
+                setTimeout(function() { splash.style.display = 'none'; }, 650);
+                splashDone = true;
+            }, 600);
+        }
 
         async function loadData() {
             try {
+                startLoadingBar();
                 const response = await fetch('/data');
                 const data = await response.json();
+                finishLoadingBar(data.features.length);
 
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('stats').innerText = `Loaded ${data.features.length} enriched places.`;
-
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
                 if (geoJsonLayer) {
                     geoJsonLayer.clearLayers();
                     geoJsonLayer.addData(data);
@@ -413,30 +1363,48 @@
                         pointToLayer: function(feature, latlng) {
                             return L.circleMarker(latlng, {
                                 radius: feature.properties.type === 'city' ? 8 : 6,
-                                fillColor: "#1a5e3c",
-                                color: "#fff",
+                                fillColor: '#1a5e3c',
+                                color: '#fff',
                                 weight: 1,
                                 opacity: 1,
                                 fillOpacity: 0.8
                             });
                         },
                         onEachFeature: function(feature, layer) {
-                            layer.bindPopup(createPopup(feature.properties));
+                            layer.on('click', function(e) {
+                                L.DomEvent.stopPropagation(e);
+                                openPlacePanel(feature.properties);
+                            });
                         }
                     }).addTo(map);
                 }
+                console.log("Markers added to map successfully!");
             } catch (err) {
+<<<<<<< HEAD
                 console.error("Error loading data:", err);
-                document.getElementById('loading').innerText = "Failed to load data. Is the server running?";
+                document.getElementById('loading').innerText = `Error: ${err.message}. Is the server running on localhost:5001?`;
+                document.getElementById('loading').style.background = "rgba(255, 100, 100, 0.8)";
+>>>>>>> main
+=======
+                console.error('Error loading data:', err);
+                clearInterval(barTimer);
+                document.getElementById('loading-fill').style.background = '#e74c3c';
+                document.getElementById('loading-fill').style.width = '100%';
+                document.getElementById('loading-status').textContent = 'Failed to load — is the server running?';
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
             }
         }
 
         loadData();
-
-        // Refresh data every 30 seconds to show progress
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
         setInterval(loadData, 30000);
 
-        // --- Search ---
+        // =====================================================================
+        // Search
+        // =====================================================================
         const searchInput = document.getElementById('search-input');
         const searchResults = document.getElementById('search-results');
         let activeIndex = -1;
@@ -459,13 +1427,13 @@
             closeDropdown();
             searchInput.value = result.name;
             map.flyTo([result.lat, result.lon], 13);
-
-            // Open the popup on the matching layer once the map settles
             map.once('moveend', function() {
                 if (!geoJsonLayer) return;
+                let found = false;
                 geoJsonLayer.eachLayer(function(layer) {
-                    if (layer.feature && layer.feature.properties.name === result.name) {
-                        layer.openPopup();
+                    if (!found && layer.feature && layer.feature.properties.name === result.name) {
+                        found = true;
+                        openPanel(layer);
                     }
                 });
             });
@@ -473,7 +1441,18 @@
 
         function renderResults(results) {
             searchResults.innerHTML = '';
-            if (results.length === 0) {
+            const countyMatch = matchCounty(searchInput.value);
+            if (countyMatch) {
+                const li = document.createElement('li');
+                li.className = 'county-suggestion';
+                li.innerHTML = `🗺 County ${countyMatch} <span class="result-county">show all towns</span>`;
+                li.addEventListener('mousedown', function(e) {
+                    e.preventDefault();
+                    selectCounty(countyMatch);
+                });
+                searchResults.appendChild(li);
+            }
+            if (results.length === 0 && !countyMatch) {
                 const li = document.createElement('li');
                 li.className = 'no-results';
                 li.textContent = 'No results found';
@@ -483,7 +1462,7 @@
                     const li = document.createElement('li');
                     li.innerHTML = `${r.name}<span class="result-county">${r.county || 'Ireland'}</span>`;
                     li.addEventListener('mousedown', function(e) {
-                        e.preventDefault(); // prevent blur before click fires
+                        e.preventDefault();
                         flyToPlace(r);
                     });
                     searchResults.appendChild(li);
@@ -502,9 +1481,7 @@
                     const res = await fetch(`/search?q=${encodeURIComponent(q)}`);
                     const data = await res.json();
                     renderResults(data);
-                } catch (e) {
-                    closeDropdown();
-                }
+                } catch (e) { closeDropdown(); }
             }, 200);
         });
 
@@ -520,20 +1497,236 @@
             else if (e.key === 'Escape') { closeDropdown(); searchInput.blur(); }
         });
 
-        searchInput.addEventListener('blur', function() {
-            setTimeout(closeDropdown, 150);
-        });
+        searchInput.addEventListener('blur', function() { setTimeout(closeDropdown, 150); });
 
-        // --- Routing ---
-        const ROUTE_THRESHOLD_KM = 10;
+        // =====================================================================
+        // County search
+        // =====================================================================
+        const IRISH_COUNTIES = [
+            'Antrim','Armagh','Carlow','Cavan','Clare','Cork','Derry','Donegal',
+            'Down','Dublin','Fermanagh','Galway','Kerry','Kildare','Kilkenny',
+            'Laois','Leitrim','Limerick','Longford','Louth','Mayo','Meath',
+            'Monaghan','Offaly','Roscommon','Sligo','Tipperary','Tyrone',
+            'Waterford','Westmeath','Wexford','Wicklow'
+        ];
+
+        let countyHighlightedLayers = [];
+        let activeCounty = null;
+        let countyBorderLayer = null;
+
+        function matchCounty(q) {
+            const lower = q.toLowerCase().trim();
+            if (lower.length < 2) return null;
+            return IRISH_COUNTIES.find(c => c.toLowerCase().startsWith(lower)) || null;
+        }
+
+        // Ray-casting point-in-polygon for a single ring of [lon, lat] pairs
+        function pointInRing(lon, lat, ring) {
+            let inside = false;
+            for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+                const xi = ring[i][0], yi = ring[i][1];
+                const xj = ring[j][0], yj = ring[j][1];
+                if (((yi > lat) !== (yj > lat)) && (lon < (xj - xi) * (lat - yi) / (yj - yi) + xi)) {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
+
+        // Works with Polygon or MultiPolygon GeoJSON geometry
+        function pointInGeometry(lon, lat, geometry) {
+            if (!geometry) return false;
+            if (geometry.type === 'Polygon') {
+                return pointInRing(lon, lat, geometry.coordinates[0]);
+            }
+            if (geometry.type === 'MultiPolygon') {
+                return geometry.coordinates.some(poly => pointInRing(lon, lat, poly[0]));
+            }
+            return false;
+        }
+
+        function clearCounty() {
+            countyHighlightedLayers.forEach(function(layer) {
+                const isCity = layer.feature && layer.feature.properties.type === 'city';
+                const isOnRoute = highlightedLayers.includes(layer);
+                layer.setStyle({
+                    fillColor: isOnRoute ? '#e67e22' : '#1a5e3c',
+                    color: '#fff', weight: 1,
+                    radius: isCity ? 8 : 6, fillOpacity: 0.8
+                });
+            });
+            countyHighlightedLayers = [];
+            activeCounty = null;
+            if (countyBorderLayer) { map.removeLayer(countyBorderLayer); countyBorderLayer = null; }
+            document.getElementById('county-panel').classList.remove('open');
+        }
+
+        async function selectCounty(countyName) {
+            closeDropdown();
+            searchInput.value = '';
+            clearCounty();
+            activeCounty = countyName;
+
+            // Show loading state immediately
+            document.getElementById('county-panel-title').textContent = `County ${countyName}`;
+            document.getElementById('county-panel-count').textContent = 'Loading...';
+            document.getElementById('county-towns-list').innerHTML = '';
+            document.getElementById('county-panel').classList.add('open');
+
+            // Fetch county border polygon from Nominatim
+            let borderGeometry = null;
+            try {
+                const query = encodeURIComponent(`County ${countyName}, Ireland`);
+                const res = await fetch(
+                    `https://nominatim.openstreetmap.org/search?q=${query}&format=geojson&polygon_geojson=1&limit=1`,
+                    { headers: { 'Accept-Language': 'en' } }
+                );
+                const geojson = await res.json();
+                if (geojson.features && geojson.features.length > 0) {
+                    const feature = geojson.features[0];
+                    borderGeometry = feature.geometry;
+                    countyBorderLayer = L.geoJSON(feature, {
+                        style: { color: '#e67e22', weight: 2.5, opacity: 0.9, fillColor: '#e67e22', fillOpacity: 0.06 },
+                        pointToLayer: function() { return null; }
+                    }).addTo(map);
+                    map.fitBounds(countyBorderLayer.getBounds(), { padding: [40, 40] });
+                }
+            } catch (e) {
+                console.warn('County border fetch failed:', e);
+            }
+
+            if (!borderGeometry || !geoJsonLayer) {
+                document.getElementById('county-panel-count').textContent = 'Border unavailable';
+                return;
+            }
+
+            // Highlight all markers that fall inside the polygon
+            const matches = [];
+            geoJsonLayer.eachLayer(function(layer) {
+                if (!layer.getLatLng) return;
+                const ll = layer.getLatLng();
+                if (pointInGeometry(ll.lng, ll.lat, borderGeometry)) {
+                    matches.push(layer);
+                    layer.setStyle({ fillColor: '#e67e22', color: '#fff', weight: 1, radius: 8, fillOpacity: 0.95 });
+                    countyHighlightedLayers.push(layer);
+                }
+            });
+
+            // Sort alphabetically and populate list
+            matches.sort((a, b) =>
+                (a.feature.properties.name || '').localeCompare(b.feature.properties.name || '')
+            );
+
+            const listEl = document.getElementById('county-towns-list');
+            listEl.innerHTML = '';
+            matches.forEach(function(layer) {
+                const props = layer.feature.properties;
+                const item = document.createElement('div');
+                item.className = 'county-town-item';
+                item.innerHTML = `
+                    <div class="county-town-dot"></div>
+                    <span>${props.name || '?'}</span>
+                    <span class="county-town-type">${props.type || ''}</span>
+                `;
+                item.addEventListener('click', function() {
+                    map.flyTo(layer.getLatLng(), 13);
+                    map.once('moveend', function() { openPanel(layer); });
+                });
+                listEl.appendChild(item);
+            });
+
+            document.getElementById('county-panel-count').textContent =
+                `${matches.length} town${matches.length !== 1 ? 's' : ''}`;
+        }
+
+        document.getElementById('county-clear').addEventListener('click', clearCounty);
+
+        // =====================================================================
+        // Routing
+        // =====================================================================
+        const CORRIDOR_PADDING_KM = 15;
+        const MAX_WAYPOINTS = 12;
+        const MAX_HOP_DETOUR_KM = 18; // max extra km any single waypoint may add vs going direct
 
         let fromPlace = null;
         let toPlace = null;
         let routePolyline = null;
         let routeMarkers = [];
         let highlightedLayers = [];
+        let routeTownMatches = [];
+        let routeWaypointNames = [];
 
-        // Haversine distance between two [lat, lon] points in km
+        // =====================================================================
+        // Tour
+        // =====================================================================
+        let tourActive = false;
+        let tourIndex = 0;
+        let tourTimeout = null;
+        let tourItems = [];
+
+        function stopTour() {
+            tourActive = false;
+            clearTimeout(tourTimeout);
+            tourItems.forEach(el => el.classList.remove('tour-active'));
+            document.getElementById('tour-btn').style.display = 'block';
+            document.getElementById('tour-stop-btn').style.display = 'none';
+            updatePanelTourState();
+        }
+
+        function playTourStep() {
+            if (!tourActive || tourIndex >= routeTownMatches.length) {
+                stopTour();
+                closePanel();
+                return;
+            }
+            const m = routeTownMatches[tourIndex];
+
+            // Mark all previous items as done, current as active
+            tourItems.forEach(function(el, i) {
+                el.classList.remove('tour-active', 'tour-done');
+                if (i < tourIndex) el.classList.add('tour-done');
+            });
+            if (tourItems[tourIndex]) {
+                tourItems[tourIndex].classList.add('tour-active');
+                tourItems[tourIndex].scrollIntoView({ block: 'nearest' });
+            }
+
+            map.flyTo(m.layer.getLatLng(), 12, { duration: 1.8 });
+            map.once('moveend', function() {
+                if (!tourActive) return;
+                openPanel(m.layer);
+                tourTimeout = setTimeout(function() {
+                    tourIndex++;
+                    playTourStep();
+                }, 8000);
+            });
+        }
+
+        function startTour() {
+            if (routeTownMatches.length === 0) return;
+            tourActive = true;
+            tourIndex = 0;
+            document.getElementById('tour-btn').style.display = 'none';
+            document.getElementById('tour-stop-btn').style.display = 'block';
+            playTourStep();
+        }
+
+        // "Next →" in the panel advances the tour immediately
+        document.getElementById('tp-next').addEventListener('click', function() {
+            clearTimeout(tourTimeout);
+            tourIndex++;
+            playTourStep();
+        });
+
+        document.getElementById('tour-btn').addEventListener('click', startTour);
+        document.getElementById('tour-stop-btn').addEventListener('click', function() {
+            stopTour();
+            closePanel();
+        });
+
+        // =====================================================================
+        // Route helpers
+        // =====================================================================
         function haversineKm(lat1, lon1, lat2, lon2) {
             const R = 6371;
             const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -544,14 +1737,13 @@
             return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
         }
 
-        // Minimum distance from point P to segment A-B (all as [lat, lon]), returns km
-        function distPointToSegmentKm(p, a, b) {
-            const dx = b[0] - a[0], dy = b[1] - a[1];
-            const lenSq = dx * dx + dy * dy;
-            if (lenSq === 0) return haversineKm(p[0], p[1], a[0], a[1]);
-            let t = ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / lenSq;
-            t = Math.max(0, Math.min(1, t));
-            return haversineKm(p[0], p[1], a[0] + t * dx, a[1] + t * dy);
+        function scoreTown(props) {
+            let s = 0;
+            if (props.folklore_myth) s += 2;
+            if (props.hidden_gem) s += 1;
+            if (props.gaa_heritage) s += 1;
+            if (props.type === 'town' || props.type === 'city') s += 1;
+            return s;
         }
 
         function formatDuration(seconds) {
@@ -560,21 +1752,78 @@
             return h > 0 ? `${h}h ${m}min` : `${m}min`;
         }
 
+        function buildTownsList() {
+            tourItems = [];
+            const townsEl = document.getElementById('route-towns');
+            if (routeTownMatches.length === 0) {
+                townsEl.style.display = 'none';
+                document.getElementById('tour-btn').style.display = 'none';
+                return;
+            }
+            townsEl.innerHTML = '';
+            routeTownMatches.forEach(function(m) {
+                const props = m.layer.feature ? m.layer.feature.properties : {};
+                const item = document.createElement('div');
+                item.className = 'route-town-item';
+                item.innerHTML = `
+                    <div class="route-town-dot"></div>
+                    <span>${props.name || '?'}</span>
+                    <span class="route-town-county">${props.county || ''}</span>
+                `;
+                item.addEventListener('click', function() {
+                    map.flyTo(m.layer.getLatLng(), 13);
+                    map.once('moveend', function() { openPanel(m.layer); });
+                });
+                tourItems.push(item);
+                townsEl.appendChild(item);
+            });
+            townsEl.style.display = 'block';
+            // Don't re-show play button if tour is already running
+            if (!tourActive) document.getElementById('tour-btn').style.display = 'block';
+        }
+
+        function reapplyRouteHighlights() {
+            if (!routePolyline || routeWaypointNames.length === 0 || !geoJsonLayer) return;
+            const nameToLayer = {};
+            geoJsonLayer.eachLayer(function(layer) {
+                if (layer.feature && layer.feature.properties.name) {
+                    nameToLayer[layer.feature.properties.name] = layer;
+                }
+            });
+            highlightedLayers = [];
+            routeTownMatches = routeWaypointNames
+                .map(name => nameToLayer[name])
+                .filter(Boolean)
+                .map(layer => ({ layer }));
+            routeTownMatches.forEach(function(m) {
+                m.layer.setStyle({ fillColor: '#e67e22', radius: 9 });
+                highlightedLayers.push(m.layer);
+            });
+            buildTownsList();
+        }
+
         function clearRoute() {
+            stopTour();
+            closePanel();
+            routeTownMatches = [];
+            routeWaypointNames = [];
+            tourItems = [];
             if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
             routeMarkers.forEach(m => map.removeLayer(m));
             routeMarkers = [];
             highlightedLayers.forEach(function(layer) {
                 const isCity = layer.feature && layer.feature.properties.type === 'city';
-                layer.setStyle({ fillColor: '#1a5e3c', radius: isCity ? 8 : 6 });
+                layer.setStyle({ fillColor: '#1a5e3c', color: '#fff', weight: 1, radius: isCity ? 8 : 6 });
             });
             highlightedLayers = [];
             fromPlace = null;
             toPlace = null;
-            document.getElementById('from-input').value = '';
-            document.getElementById('to-input').value = '';
+            setInputSelected('from-wrap', document.getElementById('from-input'), null);
+            setInputSelected('to-wrap', document.getElementById('to-input'), null);
             document.getElementById('route-summary').style.display = 'none';
             document.getElementById('route-towns').style.display = 'none';
+            document.getElementById('tour-btn').style.display = 'none';
+            document.getElementById('tour-stop-btn').style.display = 'none';
         }
 
         function makePinIcon(label, color) {
@@ -586,42 +1835,82 @@
             });
         }
 
-        function findIntersectingTowns(routeLatLngs) {
-            if (!geoJsonLayer) return [];
-            const matches = [];
-            geoJsonLayer.eachLayer(function(layer) {
-                if (!layer.getLatLng) return;
-                const ll = layer.getLatLng();
-                const p = [ll.lat, ll.lng];
-                let minDist = Infinity, closestIdx = 0;
-                for (let i = 0; i < routeLatLngs.length - 1; i++) {
-                    const d = distPointToSegmentKm(p, routeLatLngs[i], routeLatLngs[i + 1]);
-                    if (d < minDist) { minDist = d; closestIdx = i; }
-                }
-                if (minDist <= ROUTE_THRESHOLD_KM) {
-                    matches.push({ layer, closestIdx, minDist });
-                }
-            });
-            matches.sort((a, b) => a.closestIdx - b.closestIdx);
-            return matches;
-        }
-
         async function drawRoute() {
             if (!fromPlace || !toPlace) return;
 
+            const summaryEl = document.getElementById('route-summary');
+            summaryEl.textContent = 'Building your scenic route...';
+            summaryEl.style.display = 'block';
+
             try {
-                const url = `https://router.project-osrm.org/route/v1/driving/${fromPlace.lon},${fromPlace.lat};${toPlace.lon},${toPlace.lat}?overview=full&geometries=geojson`;
+                const A = fromPlace, B = toPlace;
+                const distAB = haversineKm(A.lat, A.lon, B.lat, B.lon);
+
+                // Step 1 — Ellipse corridor filter
+                const candidates = [];
+                if (geoJsonLayer) {
+                    geoJsonLayer.eachLayer(function(layer) {
+                        if (!layer.getLatLng || !layer.feature) return;
+                        const ll = layer.getLatLng();
+                        const dAT = haversineKm(A.lat, A.lon, ll.lat, ll.lng);
+                        const dTB = haversineKm(ll.lat, ll.lng, B.lat, B.lon);
+                        if (dAT + dTB <= distAB + CORRIDOR_PADDING_KM * 2) {
+                            candidates.push({ layer, lat: ll.lat, lon: ll.lng });
+                        }
+                    });
+                }
+
+                // Step 2 — Greedy nearest-neighbour, progress toward B only
+                const remaining = [...candidates];
+                const ordered = [];
+                let curLat = A.lat, curLon = A.lon;
+                while (remaining.length > 0) {
+                    const curDistToB = haversineKm(curLat, curLon, B.lat, B.lon);
+                    let bestIdx = -1, bestDist = Infinity;
+                    for (let i = 0; i < remaining.length; i++) {
+                        const t = remaining[i];
+                        if (haversineKm(t.lat, t.lon, B.lat, B.lon) >= curDistToB) continue;
+                        const d = haversineKm(curLat, curLon, t.lat, t.lon);
+                        // Skip towns that add too much sideways detour from current position
+                        const hopDetour = d + haversineKm(t.lat, t.lon, B.lat, B.lon) - curDistToB;
+                        if (hopDetour > MAX_HOP_DETOUR_KM) continue;
+                        if (d < bestDist) { bestDist = d; bestIdx = i; }
+                    }
+                    if (bestIdx === -1) break;
+                    ordered.push(remaining[bestIdx]);
+                    curLat = remaining[bestIdx].lat;
+                    curLon = remaining[bestIdx].lon;
+                    remaining.splice(bestIdx, 1);
+                }
+
+                // Step 3 — Score and cap at MAX_WAYPOINTS
+                let waypoints = ordered;
+                if (ordered.length > MAX_WAYPOINTS) {
+                    const scored = ordered.map((t, idx) => ({
+                        t, idx, score: scoreTown(t.layer.feature.properties)
+                    }));
+                    scored.sort((a, b) => b.score - a.score);
+                    const top = scored.slice(0, MAX_WAYPOINTS);
+                    top.sort((a, b) => a.idx - b.idx);
+                    waypoints = top.map(x => x.t);
+                }
+
+                // Step 4 — OSRM call with town centres as intermediate waypoints
+                const waypointStr = waypoints.map(t => `${t.lon},${t.lat}`).join(';');
+                const url = waypoints.length > 0
+                    ? `https://router.project-osrm.org/route/v1/driving/${A.lon},${A.lat};${waypointStr};${B.lon},${B.lat}?overview=full&geometries=geojson`
+                    : `https://router.project-osrm.org/route/v1/driving/${A.lon},${A.lat};${B.lon},${B.lat}?overview=full&geometries=geojson`;
+
                 const res = await fetch(url);
                 const data = await res.json();
 
                 if (!data.routes || data.routes.length === 0) {
-                    alert('Could not find a route between those places.');
+                    summaryEl.textContent = 'Could not find a route between those places.';
                     return;
                 }
 
                 const route = data.routes[0];
-                const coords = route.geometry.coordinates; // [lon, lat]
-                const latLngs = coords.map(c => [c[1], c[0]]);
+                const latLngs = route.geometry.coordinates.map(c => [c[1], c[0]]);
 
                 if (routePolyline) map.removeLayer(routePolyline);
                 routePolyline = L.polyline(latLngs, {
@@ -633,57 +1922,34 @@
 
                 map.fitBounds(routePolyline.getBounds(), { padding: [40, 40] });
 
-                const distKm = Math.round(route.distance / 1000);
-                const duration = formatDuration(route.duration);
-
-                // Find intersecting towns
+                // Step 5 — Highlight waypoint towns
                 highlightedLayers.forEach(function(layer) {
                     const isCity = layer.feature && layer.feature.properties.type === 'city';
-                    layer.setStyle({ fillColor: '#1a5e3c', radius: isCity ? 8 : 6 });
+                    layer.setStyle({ fillColor: '#1a5e3c', color: '#fff', weight: 1, radius: isCity ? 8 : 6 });
                 });
                 highlightedLayers = [];
 
-                const matches = findIntersectingTowns(latLngs);
-                matches.forEach(function(m) {
+                routeTownMatches = waypoints.map(t => ({ layer: t.layer }));
+                routeWaypointNames = waypoints.map(t => t.layer.feature.properties.name);
+
+                routeTownMatches.forEach(function(m) {
                     m.layer.setStyle({ fillColor: '#e67e22', radius: 9 });
                     highlightedLayers.push(m.layer);
                 });
 
-                // Summary
-                const summaryEl = document.getElementById('route-summary');
-                summaryEl.textContent = `${distKm} km · ~${duration}   ·   ${matches.length} town${matches.length !== 1 ? 's' : ''} along the way`;
-                summaryEl.style.display = 'block';
+                const distKm = Math.round(route.distance / 1000);
+                const duration = formatDuration(route.duration);
+                summaryEl.textContent = `${distKm} km · ~${duration}  ·  ${waypoints.length} town${waypoints.length !== 1 ? 's' : ''}  ·  scenic route`;
 
-                // Towns list
-                const townsEl = document.getElementById('route-towns');
-                if (matches.length > 0) {
-                    townsEl.innerHTML = '';
-                    matches.forEach(function(m) {
-                        const props = m.layer.feature ? m.layer.feature.properties : {};
-                        const item = document.createElement('div');
-                        item.className = 'route-town-item';
-                        item.innerHTML = `
-                            <div class="route-town-dot"></div>
-                            <span>${props.name || '?'}</span>
-                            <span class="route-town-county">${props.county || ''}</span>
-                        `;
-                        item.addEventListener('click', function() {
-                            map.flyTo(m.layer.getLatLng(), 13);
-                            map.once('moveend', function() { m.layer.openPopup(); });
-                        });
-                        townsEl.appendChild(item);
-                    });
-                    townsEl.style.display = 'block';
-                } else {
-                    townsEl.style.display = 'none';
-                }
+                buildTownsList();
 
             } catch (err) {
                 console.error('Route error:', err);
+                document.getElementById('route-summary').textContent = 'Route failed. Try again.';
             }
         }
 
-        // Route input helpers — reuses /search endpoint
+        // Route input typeahead — reuses /search endpoint
         function makeRouteInput(inputEl, resultsEl, onSelect) {
             let timer = null;
             let activeIdx = -1;
@@ -742,11 +2008,27 @@
             inputEl.addEventListener('blur', function() { setTimeout(closeList, 150); });
         }
 
+        function setInputSelected(wrapId, inputEl, result) {
+            const wrap = document.getElementById(wrapId);
+            const chipId = wrapId.replace('-wrap', '-chip');
+            const chip = document.getElementById(chipId);
+            if (result) {
+                wrap.classList.add('is-selected');
+                chip.innerHTML = `<span class="chip-name">${result.name}</span>`
+                    + (result.county ? `<span class="chip-county">${result.county}</span>` : '');
+            } else {
+                wrap.classList.remove('is-selected');
+                inputEl.value = '';
+                chip.innerHTML = '';
+            }
+        }
+
         makeRouteInput(
             document.getElementById('from-input'),
             document.getElementById('from-results'),
             function(r) {
                 fromPlace = r;
+                setInputSelected('from-wrap', document.getElementById('from-input'), r);
                 routeMarkers.filter(m => m._isFrom).forEach(m => map.removeLayer(m));
                 routeMarkers = routeMarkers.filter(m => !m._isFrom);
                 const marker = L.marker([r.lat, r.lon], { icon: makePinIcon('A', '#1a5e3c') }).addTo(map);
@@ -761,6 +2043,7 @@
             document.getElementById('to-results'),
             function(r) {
                 toPlace = r;
+                setInputSelected('to-wrap', document.getElementById('to-input'), r);
                 routeMarkers.filter(m => m._isTo).forEach(m => map.removeLayer(m));
                 routeMarkers = routeMarkers.filter(m => !m._isTo);
                 const marker = L.marker([r.lat, r.lon], { icon: makePinIcon('B', '#e67e22') }).addTo(map);
@@ -770,7 +2053,40 @@
             }
         );
 
+        // Individual clear buttons on each input
+        document.getElementById('from-clear').addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            fromPlace = null;
+            setInputSelected('from-wrap', document.getElementById('from-input'), null);
+            routeMarkers.filter(m => m._isFrom).forEach(m => map.removeLayer(m));
+            routeMarkers = routeMarkers.filter(m => !m._isFrom);
+            if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
+            document.getElementById('route-summary').style.display = 'none';
+            document.getElementById('route-towns').style.display = 'none';
+            document.getElementById('tour-btn').style.display = 'none';
+        });
+
+        document.getElementById('to-clear').addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            toPlace = null;
+            setInputSelected('to-wrap', document.getElementById('to-input'), null);
+            routeMarkers.filter(m => m._isTo).forEach(m => map.removeLayer(m));
+            routeMarkers = routeMarkers.filter(m => !m._isTo);
+            if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
+            document.getElementById('route-summary').style.display = 'none';
+            document.getElementById('route-towns').style.display = 'none';
+            document.getElementById('tour-btn').style.display = 'none';
+        });
+
         document.getElementById('clear-route').addEventListener('click', clearRoute);
+<<<<<<< HEAD
+=======
+        
+        // Refresh data every 30 seconds to show progress
+        setInterval(loadData, 30000);
+>>>>>>> main
+=======
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
     </script>
 </body>
 </html>
