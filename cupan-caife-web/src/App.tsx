@@ -8,6 +8,7 @@ import ShopPage from './pages/ShopPage';
 import TagPage from './pages/TagPage';
 import WalletPage from './pages/WalletPage';
 import PlannerPage from './pages/PlannerPage';
+import EventsPage from './pages/EventsPage';
 import TabBar from './components/TabBar';
 
 export default function App() {
@@ -25,6 +26,7 @@ export default function App() {
                 <Route path="/tag/:shopId" element={<TagPage />} />
                 <Route path="/wallet" element={<WalletPage />} />
                 <Route path="/planner" element={<PlannerPage />} />
+                <Route path="/events" element={<EventsPage />} />
               </Routes>
             </div>
             <TabBar />

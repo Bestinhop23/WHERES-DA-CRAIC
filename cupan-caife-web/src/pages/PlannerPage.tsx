@@ -98,6 +98,51 @@ async function speakIrish(text: string) {
   }
 }
 
+// ── Speech recognition via Trinity ASR ──────────────────────────────────
+
+async function recordAndRecognise(): Promise<string> {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+  const chunks: Blob[] = [];
+
+  return new Promise((resolve, reject) => {
+    mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
+    mediaRecorder.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      const blob = new Blob(chunks, { type: 'audio/webm' });
+      const reader = new FileReader();
+      reader.onloadend = async () => {
+        const base64 = (reader.result as string).split(',')[1];
+        try {
+          const res = await fetch('https://phoneticsrv3.lcs.tcd.ie/asr_api/recognise', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ recogniseBlob: base64, developer: true, method: 'online2bin' }),
+          });
+          const data = await res.json();
+          resolve(data.transcription || data.text || JSON.stringify(data));
+        } catch {
+          reject('Recognition failed');
+        }
+      };
+      reader.readAsDataURL(blob);
+    };
+    mediaRecorder.start();
+    setTimeout(() => mediaRecorder.stop(), 4000); // 4 second recording
+  });
+}
+
+function similarityScore(a: string, b: string): number {
+  const normalize = (s: string) => s.toLowerCase().replace(/[^a-záéíóúàèìòùäëïöü\s]/g, '').trim();
+  const sa = normalize(a);
+  const sb = normalize(b);
+  if (!sa || !sb) return 0;
+  const wordsA = sa.split(/\s+/);
+  const wordsB = sb.split(/\s+/);
+  const matches = wordsA.filter((w) => wordsB.includes(w)).length;
+  return Math.round((matches / Math.max(wordsA.length, wordsB.length)) * 100);
+}
+
 const PROXIMITY_METRES = 200;
 
 // ── Component ───────────────────────────────────────────────────────────
@@ -116,6 +161,8 @@ export default function PlannerPage() {
   const [coinPopup, setCoinPopup] = useState<{ name: string; amount: number } | null>(null);
   const [playingPhrase, setPlayingPhrase] = useState(false);
   const [showCredit, setShowCredit] = useState(false);
+  const [recording, setRecording] = useState(false);
+  const [recognitionResult, setRecognitionResult] = useState<{ text: string; score: number } | null>(null);
 
   const { addCoins } = useCraicCoins();
 
@@ -446,6 +493,56 @@ export default function PlannerPage() {
                 {showCredit && (
                   <div style={{ marginTop: 4, textAlign: 'center', color: Colors.textMuted, fontSize: 10, fontStyle: 'italic' }}>
                     Powered by abair.ie (Trinity College Dublin)
+                  </div>
+                )}
+
+                {/* Speak it back */}
+                <button
+                  onClick={async () => {
+                    if (recording) return;
+                    setRecording(true);
+                    setRecognitionResult(null);
+                    try {
+                      const text = await recordAndRecognise();
+                      const score = similarityScore(text, selectedFeature.properties.local_phrase.phrase);
+                      setRecognitionResult({ text, score });
+                    } catch {
+                      setRecognitionResult({ text: 'Could not recognise speech', score: 0 });
+                    }
+                    setRecording(false);
+                  }}
+                  style={{
+                    marginTop: 8, width: '100%',
+                    backgroundColor: recording ? '#c62828' : Colors.accent,
+                    borderRadius: 10, padding: '8px 14px', border: 'none',
+                    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                  }}
+                >
+                  <span style={{ fontSize: 16 }}>{recording ? '⏺️' : '🎤'}</span>
+                  <span style={{ color: recording ? '#fff' : Colors.background, fontSize: 13, fontWeight: 700 }}>
+                    {recording ? 'Listening... (4s)' : 'Speak it back'}
+                  </span>
+                </button>
+
+                {recognitionResult && (
+                  <div style={{
+                    marginTop: 8, backgroundColor: Colors.background, borderRadius: 10, padding: '10px 14px',
+                    border: `1px solid ${recognitionResult.score >= 50 ? Colors.success : Colors.border}`,
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                      <span style={{ color: Colors.textSecondary, fontSize: 11, fontWeight: 600 }}>You said:</span>
+                      <span style={{
+                        fontSize: 12, fontWeight: 800,
+                        color: recognitionResult.score >= 70 ? Colors.success : recognitionResult.score >= 40 ? Colors.accent : Colors.error,
+                      }}>
+                        {recognitionResult.score >= 70 ? '🎉 Go hiontach!' : recognitionResult.score >= 40 ? '👍 Go maith!' : '🔄 Try again'}
+                        {' '}{recognitionResult.score}%
+                      </span>
+                    </div>
+                    <div style={{ color: Colors.text, fontSize: 14, fontStyle: 'italic' }}>"{recognitionResult.text}"</div>
+                    <div style={{ marginTop: 4, textAlign: 'center', color: Colors.textMuted, fontSize: 10, fontStyle: 'italic' }}>
+                      Speech recognition by Trinity College Dublin
+                    </div>
                   </div>
                 )}
               </div>

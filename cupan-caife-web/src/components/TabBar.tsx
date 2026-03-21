@@ -15,6 +15,7 @@ export default function TabBar() {
     { path: '/map', label: copy.tabs.map, icon: '🗺️' },
     { path: '/scan', label: copy.tabs.scan, icon: '📱' },
     { path: '/planner', label: 'Planner', icon: '🏛️' },
+    { path: '/events', label: 'Events', icon: '🎉' },
     { path: '/wallet', label: `☘️ ${balance}`, icon: '💰' },
   ];
 
