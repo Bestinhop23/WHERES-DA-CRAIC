@@ -1,19 +1,21 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Colors } from '../../constants/Colors';
-import shopsData from '../../data/shops.json';
+import { useLanguage } from '../../contexts/LanguageContext';
 import menuData from '../../data/menu.json';
+import shopsData from '../../data/shops.json';
 
 export default function ShopDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const shop = shopsData.find((s) => s.id === id);
+  const { copy } = useLanguage();
+  const shop = shopsData.find((item) => item.id === id);
 
   if (!shop) {
     return (
       <View style={styles.container}>
-        <Text style={styles.errorText}>Shop not found</Text>
+        <Text style={styles.errorText}>{copy.shop.notFound}</Text>
       </View>
     );
   }
@@ -22,7 +24,6 @@ export default function ShopDetailScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      {/* Shop Header */}
       <View style={styles.header}>
         <Text style={styles.headerEmoji}>☕</Text>
         <Text style={styles.shopName}>{shop.name}</Text>
@@ -32,80 +33,64 @@ export default function ShopDetailScreen() {
             <Text style={styles.hoursText}>🕐 {shop.hours}</Text>
           </View>
           <View style={styles.nfcTag}>
-            <Text style={styles.nfcText}>📱 NFC Ready</Text>
+            <Text style={styles.nfcText}>📱 {copy.shop.nfcReady}</Text>
           </View>
         </View>
       </View>
 
-      {/* Description */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Faoin Siopa</Text>
-        <Text style={styles.sectionSubtitle}>About the Shop</Text>
+        <Text style={styles.sectionTitle}>{copy.shop.aboutTitle}</Text>
+        <Text style={styles.sectionSubtitle}>{copy.shop.aboutSubtitle}</Text>
         <Text style={styles.description}>{shop.description}</Text>
       </View>
 
-      {/* How it works */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Conas a oibríonn sé</Text>
-        <Text style={styles.sectionSubtitle}>How it Works</Text>
+        <Text style={styles.sectionTitle}>{copy.shop.howTitle}</Text>
+        <Text style={styles.sectionSubtitle}>{copy.shop.howSubtitle}</Text>
         <View style={styles.howItWorks}>
           <View style={styles.howStep}>
             <Text style={styles.howStepEmoji}>🗣️</Text>
-            <Text style={styles.howStepText}>
-              Order your coffee in Irish at the counter
-            </Text>
+            <Text style={styles.howStepText}>{copy.shop.howSteps[0]}</Text>
           </View>
           <View style={styles.howStep}>
             <Text style={styles.howStepEmoji}>📱</Text>
-            <Text style={styles.howStepText}>
-              Scan the NFC tag with your phone
-            </Text>
+            <Text style={styles.howStepText}>{copy.shop.howSteps[1]}</Text>
           </View>
           <View style={styles.howStep}>
             <Text style={styles.howStepEmoji}>💰</Text>
-            <Text style={styles.howStepText}>
-              Get 20% off your order — go raibh maith agat!
-            </Text>
+            <Text style={styles.howStepText}>{copy.shop.howSteps[2]}</Text>
           </View>
         </View>
       </View>
 
-      {/* Useful phrases */}
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Frásaí Úsáideacha</Text>
-        <Text style={styles.sectionSubtitle}>Useful Phrases</Text>
+        <Text style={styles.sectionTitle}>{copy.shop.phrasesTitle}</Text>
+        <Text style={styles.sectionSubtitle}>{copy.shop.phrasesSubtitle}</Text>
         {featuredItems.map((item) => (
           <View key={item.id} style={styles.phraseCard}>
             <Text style={styles.phraseEmoji}>{item.emoji}</Text>
             <View style={styles.phraseInfo}>
               <Text style={styles.phraseName}>{item.name}</Text>
               <Text style={styles.phraseIrish}>"{item.orderPhrase}"</Text>
-              <Text style={styles.phrasePronunciation}>
-                🔊 {item.pronunciation}
-              </Text>
+              <Text style={styles.phrasePronunciation}>🔊 {item.pronunciation}</Text>
             </View>
           </View>
         ))}
       </View>
 
-      {/* Scan CTA */}
       <TouchableOpacity
         style={styles.scanCta}
         onPress={() => router.push('/(tabs)/scan')}
         activeOpacity={0.8}
       >
         <Text style={styles.scanCtaEmoji}>📱</Text>
-        <Text style={styles.scanCtaText}>Scan do Lascaine</Text>
-        <Text style={styles.scanCtaSubtext}>Scan for your Discount</Text>
+        <Text style={styles.scanCtaText}>{copy.shop.scanTitle}</Text>
+        <Text style={styles.scanCtaSubtext}>{copy.shop.scanSubtitle}</Text>
       </TouchableOpacity>
 
       <View style={styles.footer}>
-        <Text style={styles.footerText}>
-          ☘️ Mol an óige agus tiocfaidh sí
-        </Text>
-        <Text style={styles.footerTranslation}>
-          Praise the young and they will flourish
-        </Text>
+        <Text style={styles.footerText}>☘️ {copy.shop.footerText}</Text>
+        <Text style={styles.footerTranslation}>{copy.shop.footerTranslation}</Text>
       </View>
     </ScrollView>
   );

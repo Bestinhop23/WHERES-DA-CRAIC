@@ -1,126 +1,64 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
   Animated,
   Platform,
   ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Haptics from 'expo-haptics';
 import { Colors } from '../../constants/Colors';
+import { useLanguage } from '../../contexts/LanguageContext';
 import shopsData from '../../data/shops.json';
 
-let NfcManager: any = null;
-let NfcTech: any = null;
-let isNfcAvailable = false;
-
-try {
-  const nfcModule = require('react-native-nfc-manager');
-  NfcManager = nfcModule.default;
-  NfcTech = nfcModule.NfcTech;
-  isNfcAvailable = true;
-} catch {
-  isNfcAvailable = false;
-}
-
-type ScanState = 'idle' | 'selecting' | 'ready' | 'scanning' | 'success' | 'error';
+type ScanState =
+  | 'idle'
+  | 'selecting'
+  | 'ready'
+  | 'scanning'
+  | 'success'
+  | 'error';
 
 export default function ScanScreen() {
   const [scanState, setScanState] = useState<ScanState>('idle');
-  const [selectedShop, setSelectedShop] = useState<(typeof shopsData)[number] | null>(null);
+  const [selectedShop, setSelectedShop] = useState<
+    (typeof shopsData)[number] | null
+  >(null);
   const [nfcSupported, setNfcSupported] = useState(false);
   const [pulseAnim] = useState(new Animated.Value(1));
   const [successAnim] = useState(new Animated.Value(0));
+  const { copy } = useLanguage();
 
   useEffect(() => {
-    checkNfc();
+    setNfcSupported(false);
   }, []);
 
   useEffect(() => {
     if (scanState === 'ready' || scanState === 'scanning') {
-      startPulse();
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.15,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
     }
-  }, [scanState]);
-
-  const checkNfc = async () => {
-    if (!isNfcAvailable) {
-      setNfcSupported(false);
-      return;
-    }
-    try {
-      await NfcManager.start();
-      const supported = await NfcManager.isSupported();
-      setNfcSupported(supported);
-    } catch {
-      setNfcSupported(false);
-    }
-  };
-
-  const startPulse = () => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(pulseAnim, {
-          toValue: 1.15,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-        Animated.timing(pulseAnim, {
-          toValue: 1,
-          duration: 1000,
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  };
-
-  const handleSelectShop = () => {
-    setScanState('selecting');
-  };
+  }, [pulseAnim, scanState]);
 
   const handleShopChosen = (shop: (typeof shopsData)[number]) => {
     setSelectedShop(shop);
     setScanState('ready');
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-  };
-
-  const handleScanNfc = async () => {
-    setScanState('scanning');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-
-    if (nfcSupported && isNfcAvailable) {
-      try {
-        await NfcManager.requestTechnology(NfcTech.Ndef);
-        const tag = await NfcManager.getTag();
-        await NfcManager.cancelTechnologyRequest();
-
-        if (tag) {
-          handleScanSuccess();
-        } else {
-          handleScanError();
-        }
-      } catch {
-        if (isNfcAvailable) {
-          NfcManager.cancelTechnologyRequest().catch(() => {});
-        }
-        handleScanError();
-      }
-    } else {
-      // Simulated NFC scan for Expo Go
-      setTimeout(() => {
-        handleScanSuccess();
-      }, 2000);
-    }
-  };
-
-  const handleSimulatedScan = () => {
-    setScanState('scanning');
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    setTimeout(() => {
-      handleScanSuccess();
-    }, 2500);
   };
 
   const handleScanSuccess = () => {
@@ -134,9 +72,10 @@ export default function ScanScreen() {
     }).start();
   };
 
-  const handleScanError = () => {
-    setScanState('error');
-    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+  const handleScan = () => {
+    setScanState('scanning');
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setTimeout(handleScanSuccess, nfcSupported ? 2000 : 2500);
   };
 
   const handleReset = () => {
@@ -149,46 +88,36 @@ export default function ScanScreen() {
   const renderIdle = () => (
     <View style={styles.centerContent}>
       <Text style={styles.scanIcon}>📱</Text>
-      <Text style={styles.title}>Scan do Lascaine</Text>
-      <Text style={styles.subtitle}>Scan for your Discount</Text>
-      <Text style={styles.instructions}>
-        Order your coffee as Gaeilge, then scan the NFC tag at the counter to
-        claim your 20% discount!
-      </Text>
+      <Text style={styles.title}>{copy.scan.title}</Text>
+      <Text style={styles.subtitle}>{copy.scan.subtitle}</Text>
+      <Text style={styles.instructions}>{copy.scan.instructions}</Text>
       <TouchableOpacity
         style={styles.primaryButton}
-        onPress={handleSelectShop}
+        onPress={() => setScanState('selecting')}
         activeOpacity={0.8}
       >
-        <Text style={styles.primaryButtonText}>Roghnaigh Siopa ☕</Text>
-        <Text style={styles.buttonSubtext}>Choose a Shop</Text>
+        <Text style={styles.primaryButtonText}>{copy.scan.chooseShop} ☕</Text>
+        <Text style={styles.buttonSubtext}>{copy.scan.chooseShopSubtext}</Text>
       </TouchableOpacity>
 
       <View style={styles.stepsContainer}>
-        <View style={styles.step}>
-          <Text style={styles.stepNumber}>1</Text>
-          <Text style={styles.stepText}>Choose your coffee shop</Text>
-        </View>
-        <View style={styles.step}>
-          <Text style={styles.stepNumber}>2</Text>
-          <Text style={styles.stepText}>Order in Irish at the counter</Text>
-        </View>
-        <View style={styles.step}>
-          <Text style={styles.stepNumber}>3</Text>
-          <Text style={styles.stepText}>Scan the NFC tag</Text>
-        </View>
-        <View style={styles.step}>
-          <Text style={styles.stepNumber}>4</Text>
-          <Text style={styles.stepText}>Enjoy 20% off! 🎉</Text>
-        </View>
+        {copy.scan.steps.map((step, index) => (
+          <View key={step} style={styles.step}>
+            <Text style={styles.stepNumber}>{index + 1}</Text>
+            <Text style={styles.stepText}>
+              {step}
+              {index === copy.scan.steps.length - 1 ? ' 🎉' : ''}
+            </Text>
+          </View>
+        ))}
       </View>
     </View>
   );
 
   const renderSelecting = () => (
     <View style={styles.selectContent}>
-      <Text style={styles.selectTitle}>Roghnaigh Siopa</Text>
-      <Text style={styles.selectSubtitle}>Select a coffee shop nearby</Text>
+      <Text style={styles.selectTitle}>{copy.scan.selectingTitle}</Text>
+      <Text style={styles.selectSubtitle}>{copy.scan.selectingSubtitle}</Text>
       {shopsData.map((shop) => (
         <TouchableOpacity
           key={shop.id}
@@ -218,34 +147,22 @@ export default function ScanScreen() {
         <Text style={styles.scanCircleEmoji}>📱</Text>
       </Animated.View>
 
-      <Text style={styles.readyText}>Réidh le Scan!</Text>
-      <Text style={styles.readySubtext}>Ready to Scan!</Text>
+      <Text style={styles.readyText}>{copy.scan.readyTitle}</Text>
+      <Text style={styles.readySubtext}>{copy.scan.readySubtitle}</Text>
 
-      {nfcSupported ? (
+      <View>
         <TouchableOpacity
           style={styles.scanButton}
-          onPress={handleScanNfc}
+          onPress={handleScan}
           activeOpacity={0.8}
         >
-          <Text style={styles.scanButtonText}>Scan NFC Tag 📡</Text>
+          <Text style={styles.scanButtonText}>{copy.scan.scanButton} 📡</Text>
         </TouchableOpacity>
-      ) : (
-        <View>
-          <TouchableOpacity
-            style={styles.scanButton}
-            onPress={handleSimulatedScan}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.scanButtonText}>Scan NFC Tag 📡</Text>
-          </TouchableOpacity>
-          <Text style={styles.simNote}>
-            Demo mode — NFC simulated in Expo Go
-          </Text>
-        </View>
-      )}
+        {!nfcSupported && <Text style={styles.simNote}>{copy.scan.simNote}</Text>}
+      </View>
 
       <TouchableOpacity style={styles.backLink} onPress={handleReset}>
-        <Text style={styles.backLinkText}>← Athraigh siopa</Text>
+        <Text style={styles.backLinkText}>← {copy.scan.changeShop}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -257,11 +174,11 @@ export default function ScanScreen() {
       >
         <Text style={styles.scanningEmoji}>📡</Text>
       </Animated.View>
-      <Text style={styles.scanningText}>Ag scanáil...</Text>
+      <Text style={styles.scanningText}>{copy.scan.scanningTitle}</Text>
       <Text style={styles.scanningSubtext}>
         {nfcSupported
-          ? 'Hold your phone near the NFC tag'
-          : 'Simulating NFC scan...'}
+          ? copy.scan.scanningSupported
+          : copy.scan.scanningDemo}
       </Text>
     </View>
   );
@@ -285,30 +202,26 @@ export default function ScanScreen() {
       >
         <Text style={styles.successEmoji}>🎉</Text>
       </Animated.View>
-      <Text style={styles.successTitle}>Go hiontach!</Text>
-      <Text style={styles.successSubtitle}>Fantastic!</Text>
+      <Text style={styles.successTitle}>{copy.scan.successTitle}</Text>
+      <Text style={styles.successSubtitle}>{copy.scan.successSubtitle}</Text>
       <View style={styles.discountCard}>
         <Text style={styles.discountAmount}>20% OFF</Text>
         <Text style={styles.discountShop}>{selectedShop?.name}</Text>
         <Text style={styles.discountCode}>
           GAEILGE-{selectedShop?.nfcTagId?.toUpperCase()}
         </Text>
-        <Text style={styles.discountNote}>
-          Show this to your barista
-        </Text>
+        <Text style={styles.discountNote}>{copy.scan.discountNote}</Text>
       </View>
-      <Text style={styles.gaeilgeMessage}>
-        Go raibh maith agat as Gaeilge a labhairt! 🇮🇪
-      </Text>
+      <Text style={styles.gaeilgeMessage}>{copy.scan.thankYou} 🇮🇪</Text>
       <Text style={styles.gaeilgeTranslation}>
-        Thank you for speaking Irish!
+        {copy.scan.thankYouTranslation}
       </Text>
       <TouchableOpacity
         style={styles.resetButton}
         onPress={handleReset}
         activeOpacity={0.8}
       >
-        <Text style={styles.resetButtonText}>Déan arís ↻</Text>
+        <Text style={styles.resetButtonText}>{copy.scan.reset} ↻</Text>
       </TouchableOpacity>
     </View>
   );
@@ -316,17 +229,15 @@ export default function ScanScreen() {
   const renderError = () => (
     <View style={styles.centerContent}>
       <Text style={styles.errorEmoji}>😕</Text>
-      <Text style={styles.errorTitle}>Ní raibh sé sin ceart</Text>
-      <Text style={styles.errorSubtitle}>That didn't work</Text>
-      <Text style={styles.errorMessage}>
-        Make sure you're holding your phone near the NFC tag at the counter.
-      </Text>
+      <Text style={styles.errorTitle}>{copy.scan.errorTitle}</Text>
+      <Text style={styles.errorSubtitle}>{copy.scan.errorSubtitle}</Text>
+      <Text style={styles.errorMessage}>{copy.scan.errorMessage}</Text>
       <TouchableOpacity
         style={styles.retryButton}
         onPress={() => setScanState('ready')}
         activeOpacity={0.8}
       >
-        <Text style={styles.retryButtonText}>Bain triail eile as</Text>
+        <Text style={styles.retryButtonText}>{copy.scan.retry}</Text>
       </TouchableOpacity>
     </View>
   );
@@ -337,9 +248,13 @@ export default function ScanScreen() {
       {scanState === 'selecting' && (
         <View style={styles.scrollWrap}>
           <TouchableOpacity style={styles.backHeader} onPress={handleReset}>
-            <Text style={styles.backHeaderText}>← Ar ais</Text>
+            <Text style={styles.backHeaderText}>← {copy.scan.back}</Text>
           </TouchableOpacity>
-          <ScrollView style={{ flex: 1 }} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+          <ScrollView
+            style={{ flex: 1 }}
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={{ paddingBottom: 100 }}
+          >
             {renderSelecting()}
           </ScrollView>
         </View>
@@ -454,7 +369,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
-  // Selecting state
   selectContent: {
     flex: 1,
     paddingHorizontal: 16,
@@ -505,7 +419,6 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: '700',
   },
-  // Ready state
   readyShop: {
     fontSize: 22,
     fontWeight: '800',
@@ -569,7 +482,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  // Scanning state
   scanCircleLarge: {
     width: 180,
     height: 180,
@@ -594,7 +506,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     marginTop: 8,
   },
-  // Success state
   successCircle: {
     width: 120,
     height: 120,
@@ -681,7 +592,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '700',
   },
-  // Error state
   errorEmoji: {
     fontSize: 64,
     marginBottom: 16,

@@ -31,13 +31,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
-      "expo-router",
-      [
-        "react-native-nfc-manager",
-        {
-          "nfcPermission": "Scan NFC tags at coffee shops for discounts"
-        }
-      ]
+      "expo-router"
     ]
   }
 }

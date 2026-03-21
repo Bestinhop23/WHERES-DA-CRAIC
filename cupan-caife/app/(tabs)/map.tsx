@@ -1,17 +1,16 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
   Dimensions,
+  StyleSheet,
+  Text,
   TouchableOpacity,
-  ScrollView,
-  Platform,
+  View,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { useRouter } from 'expo-router';
+import MapView, { Marker, PROVIDER_DEFAULT } from 'react-native-maps';
 import { Colors } from '../../constants/Colors';
 import { darkMapStyle } from '../../constants/MapStyle';
+import { useLanguage } from '../../contexts/LanguageContext';
 import shopsData from '../../data/shops.json';
 
 const { width, height } = Dimensions.get('window');
@@ -22,6 +21,7 @@ export default function MapScreen() {
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
   const mapRef = useRef<MapView>(null);
   const router = useRouter();
+  const { copy } = useLanguage();
 
   const handleMarkerPress = (shop: Shop) => {
     setSelectedShop(shop);
@@ -64,25 +64,25 @@ export default function MapScreen() {
             }}
             onPress={() => handleMarkerPress(shop)}
           >
-            <View style={[
-              styles.markerContainer,
-              selectedShop?.id === shop.id && styles.markerSelected,
-            ]}>
+            <View
+              style={[
+                styles.markerContainer,
+                selectedShop?.id === shop.id && styles.markerSelected,
+              ]}
+            >
               <Text style={styles.markerEmoji}>☕</Text>
             </View>
           </Marker>
         ))}
       </MapView>
 
-      {/* Header overlay */}
       <View style={styles.headerOverlay}>
-        <Text style={styles.headerTitle}>☘️ Léarscáil Caife</Text>
+        <Text style={styles.headerTitle}>☘️ {copy.map.headerTitle}</Text>
         <Text style={styles.headerSubtitle}>
-          {shopsData.length} shops in Dublin
+          {copy.map.headerSubtitle(shopsData.length)}
         </Text>
       </View>
 
-      {/* Bottom sheet for selected shop */}
       {selectedShop && (
         <View style={styles.bottomSheet}>
           <View style={styles.sheetHandle} />
@@ -106,7 +106,7 @@ export default function MapScreen() {
                   <Text style={styles.metaText}>🕐 {selectedShop.hours}</Text>
                 </View>
                 <View style={styles.nfcTag}>
-                  <Text style={styles.nfcText}>📱 NFC Ready</Text>
+                  <Text style={styles.nfcText}>📱 {copy.map.nfcReady}</Text>
                 </View>
               </View>
               <TouchableOpacity
@@ -114,9 +114,7 @@ export default function MapScreen() {
                 onPress={() => handleShopPress(selectedShop)}
                 activeOpacity={0.8}
               >
-                <Text style={styles.orderButtonText}>
-                  Ordaigh as Gaeilge →
-                </Text>
+                <Text style={styles.orderButtonText}>{copy.map.cta} →</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -138,8 +136,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   map: {
-    width: width,
-    height: height,
+    width,
+    height,
   },
   markerContainer: {
     backgroundColor: Colors.surface,

@@ -1,8 +1,11 @@
 import { Tabs } from 'expo-router';
 import { Text } from 'react-native';
 import { Colors } from '../../constants/Colors';
+import { useLanguage } from '../../contexts/LanguageContext';
 
 export default function TabLayout() {
+  const { copy } = useLanguage();
+
   return (
     <Tabs
       screenOptions={{
@@ -25,30 +28,17 @@ export default function TabLayout() {
       }}
     >
       <Tabs.Screen
-        name="menu"
-        options={{
-          title: 'Biachlár',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24 }}>☕</Text>
-          ),
-        }}
-      />
-      <Tabs.Screen
         name="map"
         options={{
-          title: 'Léarscáil',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24 }}>🗺️</Text>
-          ),
+          title: copy.tabs.map,
+          tabBarIcon: () => <Text style={{ fontSize: 24 }}>🗺️</Text>,
         }}
       />
       <Tabs.Screen
         name="scan"
         options={{
-          title: 'Scan NFC',
-          tabBarIcon: ({ color }) => (
-            <Text style={{ fontSize: 24 }}>📱</Text>
-          ),
+          title: copy.tabs.scan,
+          tabBarIcon: () => <Text style={{ fontSize: 24 }}>📱</Text>,
         }}
       />
     </Tabs>
