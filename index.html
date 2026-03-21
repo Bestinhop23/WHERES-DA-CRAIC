@@ -863,6 +863,10 @@
             if (!layer || !layer.feature) return;
             const props = layer.feature.properties;
 
+            // Block the map click listener from closing this panel in the same tick
+            _panelJustOpened = true;
+            setTimeout(function() { _panelJustOpened = false; }, 0);
+
             // Reset previous marker ring and label
             if (activePanelLayer && activePanelLayer !== layer) {
                 const prevProps = activePanelLayer.feature ? activePanelLayer.feature.properties : {};
@@ -996,8 +1000,13 @@
             }
         });
 
-        // Click outside panel on map closes it
-        map.on('click', closePanel);
+        // Click outside panel on map closes it.
+        // Guard against the same click that opens the panel also closing it.
+        let _panelJustOpened = false;
+        map.on('click', function() {
+            if (_panelJustOpened) return;
+            closePanel();
+        });
 
         // =====================================================================
         // Data loading
@@ -1313,9 +1322,9 @@
         // =====================================================================
         // Routing
         // =====================================================================
-        const CORRIDOR_PADDING_KM = 15;
+        const CORRIDOR_PADDING_KM = 10;
         const MAX_WAYPOINTS = 12;
-        const MAX_HOP_DETOUR_KM = 18; // max extra km any single waypoint may add vs going direct
+        const MAX_HOP_DETOUR_KM = 10; // max extra km any single waypoint may add vs going direct
 
         let fromPlace = null;
         let toPlace = null;
@@ -1430,7 +1439,7 @@
                 return;
             }
             townsEl.innerHTML = '';
-            routeTownMatches.forEach(function(m) {
+            routeTownMatches.forEach(function(m, idx) {
                 const props = m.layer.feature ? m.layer.feature.properties : {};
                 const item = document.createElement('div');
                 item.className = 'route-town-item';
@@ -1440,6 +1449,13 @@
                     <span class="route-town-county">${props.county || ''}</span>
                 `;
                 item.addEventListener('click', function() {
+                    // Update progress state — fill all dots/lines up to this item
+                    tourItems.forEach(function(el, i) {
+                        el.classList.remove('tour-active', 'tour-done');
+                        if (i < idx) el.classList.add('tour-done');
+                    });
+                    item.classList.add('tour-active');
+
                     map.flyTo(m.layer.getLatLng(), 13);
                     map.once('moveend', function() { openPanel(m.layer); });
                 });
