@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Craic? - Deep Culture Map of Ireland</title>
-=======
 
     <!-- Leaflet CSS -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
@@ -26,93 +25,93 @@
             inset: 0;
             background: #1a5e3c;
             z-index: 9000;
->>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
             display: flex;
             flex-direction: column;
-            transform: translateX(100%);
-            transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+            align-items: center;
+            justify-content: center;
+            gap: 28px;
+            transition: opacity 0.6s ease;
         }
-        #place-panel.open { transform: translateX(0); }
-        #place-panel-header {
-            background: #1a5e3c;
-            color: #fff;
-            padding: 18px 24px 10px 24px;
-            border-bottom: 1px solid #e6e6e6;
+
+        #loading-splash.fade-out {
+            opacity: 0;
+            pointer-events: none;
         }
-        #place-panel-header .place-name {
-            font-size: 1.6rem;
-            font-weight: 700;
-            margin-bottom: 2px;
+
+        #loading-splash h1 {
+            color: white;
+            font-size: 2.2rem;
+            font-weight: 800;
+            letter-spacing: 0.04em;
+            margin: 0;
         }
-        #place-panel-header .place-meta {
-            font-size: 0.85rem;
-            color: rgba(255,255,255,0.7);
+
+        #loading-splash p {
+            color: rgba(255,255,255,0.65);
+            font-size: 0.9rem;
+            margin: -18px 0 0;
         }
-        #place-panel-header .type-badge {
-            float: right;
-            background: #e67e22;
-            color: #fff;
-            font-size: 0.8rem;
-            border-radius: 6px;
-            padding: 2px 10px;
-            margin-left: 10px;
+
+        #loading-track {
+            width: 260px;
+            height: 4px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            overflow: hidden;
         }
-        #place-panel-tabs {
-            display: flex;
-            border-bottom: 1.5px solid #e6e6e6;
-            background: #fff;
+
+        #loading-fill {
+            height: 100%;
+            width: 0%;
+            background: white;
+            border-radius: 4px;
+            transition: width 0.3s ease;
         }
-        .panel-tab {
-            flex: 1;
-            text-align: center;
-            padding: 12px 0 10px 0;
-            font-weight: 600;
-            font-size: 1rem;
-            color: #1a5e3c;
-            cursor: pointer;
-            border: none;
-            background: none;
-            outline: none;
-            border-bottom: 2.5px solid transparent;
-            transition: border 0.15s;
+
+        #loading-status {
+            color: rgba(255,255,255,0.55);
+            font-size: 0.78rem;
+            margin-top: -18px;
+            letter-spacing: 0.03em;
         }
-        .panel-tab.active {
-            border-bottom: 2.5px solid #e67e22;
-            color: #e67e22;
-        }
-        #place-panel-content {
-            flex: 1;
-            overflow-y: auto;
-            padding: 22px 24px 12px 24px;
-            background: #fff;
-            min-height: 0;
-            transition: opacity 0.1s;
-        }
-        .panel-section { display: none; }
-        .panel-section.active { display: block; animation: fadein 0.12s; }
-        @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
-        #place-panel-footer {
-            padding: 16px 24px 18px 24px;
-            background: #f7f7f7;
-            border-top: 1px solid #e6e6e6;
-            font-size: 1.05rem;
-            color: #1a5e3c;
-            font-style: italic;
-            min-height: 48px;
-        }
-        #place-panel-close {
+
+        /* --- Search --- */
+        #search-container {
             position: absolute;
-            top: 14px; right: 18px;
-            font-size: 1.5rem;
-            color: #fff;
-            background: none;
+            top: 20px;
+            left: 20px;
+            z-index: 1200;
+            width: 300px;
+        }
+
+        #search-input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 14px;
             border: none;
-            cursor: pointer;
-            z-index: 10;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            font-size: 0.95rem;
+            font-family: inherit;
+            outline: none;
+            background: rgba(255,255,255,0.95);
         }
-        @media (max-width: 600px) {
-            #place-panel { width: 100vw; height: 65vh; bottom: 0; top: auto; right: 0; border-radius: 18px 18px 0 0; }
+
+        #search-input:focus {
+            box-shadow: 0 0 0 2px #1a5e3c, 0 4px 6px rgba(0,0,0,0.1);
         }
+
+        #search-results {
+            list-style: none;
+            margin: 4px 0 0;
+            padding: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            overflow: hidden;
+            display: none;
+        }
+
         #search-results li {
             padding: 10px 14px;
             cursor: pointer;
@@ -712,6 +711,44 @@
 
         .tp-marker-label::before { display: none; }
 
+        /* --- Street View --- */
+        #tp-streetview-wrap {
+            width: 100%;
+            height: 160px;
+            background: #e8e8e8;
+            position: relative;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        #tp-town-img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: none;
+        }
+
+        #tp-streetview-fallback {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 0.82rem;
+            text-align: center;
+            gap: 4px;
+        }
+
+        #tp-streetview-fallback-name {
+            color: #555;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .tp-sv-no-imagery { color: #aaa; }
+
         /* Mobile bottom sheet */
         @media (max-width: 640px) {
             #town-panel {
@@ -728,93 +765,11 @@
                 bottom: 0;
                 right: 0;
             }
-<<<<<<< HEAD
-=======
-    
-    <!-- Leaflet CSS -->
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-    
-    <!-- Custom CSS for "Deep Culture" -->
-    <style>
-        body { margin: 0; padding: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f4f7f6; }
-        #map { height: 100vh; width: 100vw; }
-        
-        .map-header {
-            position: absolute;
-            top: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 1000;
-            background: rgba(255, 255, 255, 0.9);
-            padding: 10px 20px;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            text-align: center;
-        }
-        
-        .map-header h1 { margin: 0; color: #1a5e3c; font-size: 1.5rem; }
-        .map-header p { margin: 5px 0 0; font-size: 0.9rem; color: #666; }
-        
-        .popup-content {
-            max-width: 300px;
-            max-height: 400px;
-            overflow-y: auto;
-            padding: 10px;
-        }
-        
-        .popup-content h3 { margin-top: 0; color: #1a5e3c; border-bottom: 2px solid #1a5e3c; padding-bottom: 5px; }
-        .popup-content h4 { margin: 15px 0 5px; color: #b05a1e; font-size: 0.9rem; text-transform: uppercase; }
-        .popup-content p { margin: 5px 0; font-size: 0.85rem; line-height: 1.4; color: #333; }
-        
-        .tag {
-            display: inline-block;
-            background: #e8f5e9;
-            color: #2e7d32;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 0.75rem;
-            margin-right: 5px;
-            margin-bottom: 5px;
-        }
-        
-        .multimedia-link {
-            display: block;
-            margin-top: 10px;
-            padding: 8px;
-            background: #ff0000;
-            color: white;
-            text-align: center;
-            text-decoration: none;
-            border-radius: 4px;
-            font-size: 0.8rem;
-            font-weight: bold;
-        }
-        
-        .multimedia-link:hover { background: #cc0000; }
-        
-        .loading-overlay {
-            position: fixed;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255, 255, 255, 0.8);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 2000;
-            font-size: 1.2rem;
-            color: #1a5e3c;
-            font-weight: bold;
->>>>>>> main
-=======
->>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
         }
     </style>
 </head>
 <body>
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
     <div id="loading-splash">
         <h1>Craic?</h1>
         <p>Deep culture map of Ireland</p>
@@ -871,6 +826,13 @@
             <div class="tp-name" id="tp-name"></div>
             <div class="tp-sub" id="tp-sub"></div>
         </div>
+        <div id="tp-streetview-wrap">
+            <img id="tp-town-img" alt="" style="display:none">
+            <div id="tp-streetview-fallback">
+                <span id="tp-streetview-fallback-name"></span>
+                <span class="tp-sv-no-imagery">No image available</span>
+            </div>
+        </div>
         <div class="tp-body">
             <div class="tp-section">
                 <div class="tp-section-header">Lore</div>
@@ -892,53 +854,17 @@
         <div class="tp-footer" id="tp-footer"></div>
     </div>
 
-<<<<<<< HEAD
-=======
-    <div class="map-header">
-        <h1>☘️ Craic? Deep Culture Map</h1>
-        <p id="stats">Enriching towns and villages...</p>
-    </div>
-    
-    <div id="loading" class="loading-overlay">Loading Ireland's stories...</div>
->>>>>>> main
-=======
->>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
     <div id="map"></div>
-    <div id="place-panel">
-        <div id="place-panel-header">
-            <button id="place-panel-close" title="Close">&times;</button>
-            <div class="place-name" id="panel-place-name"></div>
-            <div class="place-meta"><span id="panel-place-irish"></span> &middot; <span id="panel-place-county"></span><span class="type-badge" id="panel-place-type"></span></div>
-        </div>
-        <div id="place-panel-tabs">
-            <button class="panel-tab active" data-tab="lore">LORE</button>
-            <button class="panel-tab" data-tab="roots">ROOTS</button>
-            <button class="panel-tab" data-tab="gaa">GAA</button>
-            <button class="panel-tab" data-tab="gem">GEM</button>
-        </div>
-        <div id="place-panel-content">
-            <div class="panel-section" id="panel-section-lore"></div>
-            <div class="panel-section" id="panel-section-roots"></div>
-            <div class="panel-section" id="panel-section-gaa"></div>
-            <div class="panel-section" id="panel-section-gem"></div>
-        </div>
-        <div id="place-panel-footer"></div>
-    </div>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-<<<<<<< HEAD
-=======
 
->>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
     <script>
+
         // Initialize map
         const map = L.map('map', { zoomControl: false }).setView([53.3498, -7.2604], 7);
         L.control.zoom({ position: 'topright' }).addTo(map);
-<<<<<<< HEAD
-=======
 
->>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
         L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
             maxZoom: 20,
             maxNativeZoom: 20,
@@ -947,16 +873,12 @@
             attribution: '&copy; <a href="https://stadiamaps.com/">Stadia Maps</a>, &copy; <a href="https://openmaptiles.org/">OpenMapTiles</a> &copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-<<<<<<< HEAD
-        // Color mapping for GAA swatches
-=======
         // =====================================================================
         // Town Panel
         // =====================================================================
 
         let activePanelLayer = null;
 
->>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
         const COLOR_MAP = {
             'green': '#2e7d32', 'dark green': '#1a5e3c', 'light green': '#81c784',
             'emerald': '#009b77', 'emerald green': '#009b77', 'bottle green': '#006a4e',
@@ -973,206 +895,45 @@
             'brown': '#5d4037', 'claret': '#7b1034', 'wine': '#722f37',
             'pink': '#e91e8c', 'cream': '#f5f0dc', 'cardinal': '#9b2335',
         };
-<<<<<<< HEAD
-=======
 
->>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
         function colorToCSS(name) {
             return COLOR_MAP[(name || '').toLowerCase().trim()] || '#999999';
         }
 
-<<<<<<< HEAD
-        // Panel logic
-        function openPlacePanel(props) {
-            // Header
-            document.getElementById('panel-place-name').textContent = props.name || '';
-            document.getElementById('panel-place-irish').textContent = props.name_ga || '';
-            document.getElementById('panel-place-county').textContent = props.county || '';
-            document.getElementById('panel-place-type').textContent = props.type || '';
+        function updateStreetView(lat, lon, townName, county) {
+            const img = document.getElementById('tp-town-img');
+            const fallback = document.getElementById('tp-streetview-fallback');
+            const fallbackName = document.getElementById('tp-streetview-fallback-name');
 
-                        // Tabs
-                        // LORE
-                        document.getElementById('panel-section-lore').innerHTML = props.folklore_myth
-                            ? `<div style="font-size:1.05rem;line-height:1.6;color:#222;padding-left:10px;border-left:3px solid #c8e6c9;">${props.folklore_myth}</div>`
-                            : `<div style="color:#bbb;font-style:italic;">No folklore recorded for this place.</div>`;
-                        // ROOTS
-                        const etym = props.etymology;
-                        const irishName = props.name_ga || '';
-                        let meaning = '', origin = '';
-                        if (etym) {
-                            if (typeof etym === 'string') { meaning = etym; }
-                            else { meaning = etym.meaning || ''; origin = etym.origin || ''; }
+            img.style.display = 'none';
+            fallback.style.display = 'flex';
+            fallbackName.textContent = townName;
+            img.src = '';
+
+            function tryWikiTitle(title, nextTry) {
+                const url = `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`;
+                fetch(url)
+                    .then(r => r.json())
+                    .then(function(data) {
+                        if (data.thumbnail && data.thumbnail.source) {
+                            img.src = data.thumbnail.source;
+                            img.style.display = 'block';
+                            fallback.style.display = 'none';
+                        } else if (nextTry) {
+                            nextTry();
                         }
-                        document.getElementById('panel-section-roots').innerHTML = (irishName || meaning || origin)
-                            ? `${irishName ? `<div style='font-size:1.2rem;font-weight:bold;color:#1a5e3c;'>${irishName}</div>` : ''}
-                               ${meaning ? `<div style='font-size:0.95rem;color:#444;margin-bottom:6px;'>${meaning}</div>` : ''}
-                               ${origin ? `<div style='font-size:0.85rem;color:#888;font-style:italic;'>${origin}</div>` : ''}`
-                            : `<div style='color:#bbb;font-style:italic;'>No etymology recorded.</div>`;
-                        // GAA
-                        const gaa = props.gaa_heritage;
-                        if (gaa) {
-                            const clubName = gaa.club_name || gaa.club || '';
-                            const rawColors = Array.isArray(gaa.colors)
-                                ? gaa.colors
-                                : (gaa.colors ? String(gaa.colors).split(/\s+and\s+|\s*[,/&]\s*/).map(s => s.trim()).filter(Boolean) : []);
-                            const legends = gaa.legends || gaa.notable_players || '';
-                            const swatchesHtml = rawColors.map(c =>
-                                `<div style='display:inline-block;width:22px;height:22px;border-radius:50%;border:1px solid #ccc;margin-right:6px;background:${colorToCSS(c)}' title='${c}'></div>`
-                            ).join('');
-                            const colourLabel = rawColors.length ? `<span style='font-size:0.85rem;color:#666;'>${rawColors.join(' & ')}</span>` : '';
-                            document.getElementById('panel-section-gaa').innerHTML = `
-                                ${clubName ? `<div style='font-size:1.05rem;font-weight:600;color:#222;'>${clubName}</div>` : ''}
-                                ${rawColors.length ? `<div style='margin-bottom:8px;'>${swatchesHtml}${colourLabel}</div>` : ''}
-                                ${legends ? `<div style='font-size:0.9rem;color:#555;'>${Array.isArray(legends) ? legends.join(', ') : legends}</div>` : ''}
-                                ${!clubName && !rawColors.length ? '<div style="color:#bbb;font-style:italic;">No GAA data for this place.</div>' : ''}
-                            `;
-                        } else {
-                            document.getElementById('panel-section-gaa').innerHTML = '<div style="color:#bbb;font-style:italic;">No GAA data for this place.</div>';
-                        }
-                        // GEM
-                        const gem = props.hidden_gem;
-                        document.getElementById('panel-section-gem').innerHTML = gem
-                            ? `<div style='background:#f0f7f4;border-left:3px solid #1a5e3c;border-radius:0 6px 6px 0;padding:12px 14px;font-size:0.95rem;font-style:italic;color:#333;line-height:1.6;'>${gem.spot || gem}</div>`
-                            : `<div style='color:#bbb;font-style:italic;'>No hidden gem recorded.</div>`;
+                    })
+                    .catch(function() { if (nextTry) nextTry(); });
+            }
 
-                        // Footer — local phrase
-                        const phrase = props.local_phrase;
-                        document.getElementById('place-panel-footer').innerHTML = (phrase && phrase.phrase)
-                            ? `<em>"${phrase.phrase}"</em> — ${phrase.meaning}`
-                            : `<em>Slán go fóill</em> — Goodbye for now.`;
-
-                        // Show panel, default to LORE tab
-                        document.getElementById('place-panel').classList.add('open');
-                        setActivePanelTab('lore');
-                    }
-
-                    function closePlacePanel() {
-                        document.getElementById('place-panel').classList.remove('open');
-                    }
-
-                    // Tab switching
-                    function setActivePanelTab(tab) {
-                        document.querySelectorAll('.panel-tab').forEach(btn => {
-                            btn.classList.toggle('active', btn.dataset.tab === tab);
-                        });
-                        document.querySelectorAll('.panel-section').forEach(sec => {
-                            sec.classList.toggle('active', sec.id === 'panel-section-' + tab);
-                        });
-                    }
-                    document.querySelectorAll('.panel-tab').forEach(btn => {
-                        btn.addEventListener('click', function() {
-                            setActivePanelTab(this.dataset.tab);
-                        });
-                    });
-                    document.getElementById('place-panel-close').addEventListener('click', closePlacePanel);
-                    map.on('click', closePlacePanel);
-                    document.addEventListener('keydown', function(e) {
-                        if (e.key === 'Escape') closePlacePanel();
-                    });
-
-                    // Data loading and marker logic
-                    let geoJsonLayer = null;
-                    let barTimer = null;
-                    let splashDone = false;
-                    function startLoadingBar() {
-                        let pct = 0;
-                        clearInterval(barTimer);
-                        barTimer = setInterval(function() {
-                            pct += (85 - pct) * 0.07;
-                            document.getElementById('loading-fill').style.width = pct + '%';
-                        }, 80);
-                    }
-                    function finishLoadingBar(count) {
-                        clearInterval(barTimer);
-                        document.getElementById('loading-fill').style.width = '100%';
-                        document.getElementById('loading-status').textContent = `${count} towns loaded`;
-                        setTimeout(function() {
-                            const splash = document.getElementById('loading-splash');
-                            splash.classList.add('fade-out');
-                            setTimeout(function() { splash.style.display = 'none'; }, 650);
-                            splashDone = true;
-                        }, 600);
-                    }
-                    async function loadData() {
-                        try {
-                            startLoadingBar();
-                            const response = await fetch('/data');
-                            const data = await response.json();
-                            finishLoadingBar(data.features.length);
-                            if (geoJsonLayer) {
-                                geoJsonLayer.clearLayers();
-                                geoJsonLayer.addData(data);
-                            } else {
-                                geoJsonLayer = L.geoJSON(data, {
-                                    pointToLayer: function(feature, latlng) {
-                                        return L.circleMarker(latlng, {
-                                            radius: feature.properties.type === 'city' ? 8 : 6,
-                                            fillColor: '#1a5e3c',
-                                            color: '#fff',
-                                            weight: 1,
-                                            opacity: 1,
-                                            fillOpacity: 0.8
-                                        });
-                                    },
-                                    onEachFeature: function(feature, layer) {
-                                        layer.on('click', function(e) {
-                                            L.DomEvent.stopPropagation(e);
-                                            openPlacePanel(feature.properties);
-                                        });
-                                    }
-                                }).addTo(map);
-                            }
-                        } catch (err) {
-                            console.error('Error loading data:', err);
-                            clearInterval(barTimer);
-                            document.getElementById('loading-fill').style.background = '#e74c3c';
-                            document.getElementById('loading-fill').style.width = '100%';
-                            document.getElementById('loading-status').textContent = 'Failed to load — is the server running?';
-                        }
-                    }
-                    loadData();
-                    // ...existing code...
-                    </script>
-                    
-                    <h4>✨ Hidden Gem</h4>
-                    <p>${hiddenGem}</p>
-                    
-                    <h4>☘️ Irish Proverb (Seanfhocail)</h4>
-                    <p><em>"${seanfhocailIrish}"</em></p>
-                    <p style="font-size: 0.9rem; color: #555; margin-top: 5px;">${seanfhocailEnglish}</p>
-                    
-                    <a href="https://www.youtube.com/results?search_query=${encodeURIComponent(props.multimedia_query || props.name)}" target="_blank" class="multimedia-link">
-                        🎵 Hear the Sound of ${props.name}
-                    </a>
-                </div>
-            `;
-            return html;
+            const withCounty = county ? `${townName}, County ${county}` : null;
+            if (withCounty) {
+                tryWikiTitle(withCounty, function() { tryWikiTitle(townName, null); });
+            } else {
+                tryWikiTitle(townName, null);
+            }
         }
 
-        // Fetch data
-        async function loadData() {
-            try {
-                console.log("Fetching data from /data endpoint...");
-                const response = await fetch('/data');
-                
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                
-                const data = await response.json();
-                console.log("Successfully loaded " + data.features.length + " places");
-                
-                if (!data.features || data.features.length === 0) {
-                    document.getElementById('loading').style.display = 'none';
-                    document.getElementById('stats').innerText = "No enriched data yet. Run enrich_ireland_culture.py first.";
-                    console.warn("No features found in GeoJSON response");
-                    return;
-                }
-                
-                document.getElementById('loading').style.display = 'none';
-                document.getElementById('stats').innerText = `Loaded ${data.features.length} enriched places.`;
-                
-=======
         function updatePanelTourState() {
             document.getElementById('tp-close').style.display = tourActive ? 'none' : '';
             document.getElementById('tp-next').style.display = tourActive ? '' : 'none';
@@ -1181,6 +942,10 @@
         function openPanel(layer) {
             if (!layer || !layer.feature) return;
             const props = layer.feature.properties;
+
+            // Block the map click listener from closing this panel in the same tick
+            _panelJustOpened = true;
+            setTimeout(function() { _panelJustOpened = false; }, 0);
 
             // Reset previous marker ring and label
             if (activePanelLayer && activePanelLayer !== layer) {
@@ -1220,6 +985,10 @@
             document.getElementById('tp-type').textContent = props.type || '';
             const subParts = [props.name_ga, props.county ? `County ${props.county}` : ''].filter(Boolean);
             document.getElementById('tp-sub').textContent = subParts.join('  ·  ');
+
+            // Town image
+            const coords = layer.getLatLng();
+            updateStreetView(coords.lat, coords.lng, props.name, props.county);
 
             // LORE tab
             const loreEl = document.getElementById('tp-lore');
@@ -1286,6 +1055,7 @@
 
         function closePanel() {
             document.getElementById('town-panel').classList.remove('open');
+            document.getElementById('tp-town-img').src = '';
             if (activePanelLayer) {
                 const props = activePanelLayer.feature ? activePanelLayer.feature.properties : {};
                 const isCity = props.type === 'city';
@@ -1315,8 +1085,13 @@
             }
         });
 
-        // Click outside panel on map closes it
-        map.on('click', closePanel);
+        // Click outside panel on map closes it.
+        // Guard against the same click that opens the panel also closing it.
+        let _panelJustOpened = false;
+        map.on('click', function() {
+            if (_panelJustOpened) return;
+            closePanel();
+        });
 
         // =====================================================================
         // Data loading
@@ -1354,10 +1129,10 @@
                 const data = await response.json();
                 finishLoadingBar(data.features.length);
 
->>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
                 if (geoJsonLayer) {
                     geoJsonLayer.clearLayers();
                     geoJsonLayer.addData(data);
+                    if (routePolyline) reapplyRouteHighlights();
                 } else {
                     geoJsonLayer = L.geoJSON(data, {
                         pointToLayer: function(feature, latlng) {
@@ -1372,34 +1147,22 @@
                         },
                         onEachFeature: function(feature, layer) {
                             layer.on('click', function(e) {
-                                L.DomEvent.stopPropagation(e);
-                                openPlacePanel(feature.properties);
+                                L.DomEvent.stopPropagation(e); // prevent map click from closing immediately
+                                openPanel(layer);
                             });
                         }
                     }).addTo(map);
                 }
-                console.log("Markers added to map successfully!");
             } catch (err) {
-<<<<<<< HEAD
-                console.error("Error loading data:", err);
-                document.getElementById('loading').innerText = `Error: ${err.message}. Is the server running on localhost:5001?`;
-                document.getElementById('loading').style.background = "rgba(255, 100, 100, 0.8)";
->>>>>>> main
-=======
                 console.error('Error loading data:', err);
                 clearInterval(barTimer);
                 document.getElementById('loading-fill').style.background = '#e74c3c';
                 document.getElementById('loading-fill').style.width = '100%';
                 document.getElementById('loading-status').textContent = 'Failed to load — is the server running?';
->>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
             }
         }
 
         loadData();
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
         setInterval(loadData, 30000);
 
         // =====================================================================
@@ -1644,9 +1407,9 @@
         // =====================================================================
         // Routing
         // =====================================================================
-        const CORRIDOR_PADDING_KM = 15;
+        const CORRIDOR_PADDING_KM = 10;
         const MAX_WAYPOINTS = 12;
-        const MAX_HOP_DETOUR_KM = 18; // max extra km any single waypoint may add vs going direct
+        const MAX_HOP_DETOUR_KM = 10; // max extra km any single waypoint may add vs going direct
 
         let fromPlace = null;
         let toPlace = null;
@@ -1761,7 +1524,7 @@
                 return;
             }
             townsEl.innerHTML = '';
-            routeTownMatches.forEach(function(m) {
+            routeTownMatches.forEach(function(m, idx) {
                 const props = m.layer.feature ? m.layer.feature.properties : {};
                 const item = document.createElement('div');
                 item.className = 'route-town-item';
@@ -1771,6 +1534,13 @@
                     <span class="route-town-county">${props.county || ''}</span>
                 `;
                 item.addEventListener('click', function() {
+                    // Update progress state — fill all dots/lines up to this item
+                    tourItems.forEach(function(el, i) {
+                        el.classList.remove('tour-active', 'tour-done');
+                        if (i < idx) el.classList.add('tour-done');
+                    });
+                    item.classList.add('tour-active');
+
                     map.flyTo(m.layer.getLatLng(), 13);
                     map.once('moveend', function() { openPanel(m.layer); });
                 });
@@ -2079,14 +1849,6 @@
         });
 
         document.getElementById('clear-route').addEventListener('click', clearRoute);
-<<<<<<< HEAD
-=======
-        
-        // Refresh data every 30 seconds to show progress
-        setInterval(loadData, 30000);
->>>>>>> main
-=======
->>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
     </script>
 </body>
 </html>

@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "react-native-tts": "^4.1.1",
+    "react-native-voice": "^0.3.0"
+  }
+}

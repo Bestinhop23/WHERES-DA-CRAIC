@@ -1,13 +1,13 @@
 [
   {
     "id": "1",
-    "name": "Bewley's Grafton Street",
-    "latitude": 53.3418,
-    "longitude": -6.2603,
-    "address": "78-79 Grafton St, Dublin 2",
-    "hours": "8am - 9pm",
-    "nfcTagId": "bewleys-grafton",
-    "description": "Iconic Dublin café since 1927, famous for its stained glass windows"
+    "name": "Starbucks CHQ",
+    "latitude": 53.3489,
+    "longitude": -6.2477,
+    "address": "CHQ Building, Custom House Quay, Dublin 1",
+    "hours": "7am - 8pm",
+    "nfcTagId": "starbucks-chq",
+    "description": "Starbucks in the historic CHQ Building on the docklands"
   },
   {
     "id": "2",

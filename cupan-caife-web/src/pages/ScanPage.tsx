@@ -25,42 +25,36 @@ export default function ScanPage() {
   }, []);
 
   const handleScan = async () => {
+    if (!nfcSupported) {
+      setState('error');
+      return;
+    }
+
     setState('scanning');
 
-    if (nfcSupported) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const NDEFReader = (window as any).NDEFReader;
-        const reader = new NDEFReader();
-        abortRef.current = new AbortController();
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const NDEFReader = (window as any).NDEFReader;
+      const reader = new NDEFReader();
+      abortRef.current = new AbortController();
 
-        await reader.scan({ signal: abortRef.current.signal });
+      await reader.scan({ signal: abortRef.current.signal });
 
-        reader.addEventListener('reading', ({ serialNumber }: { serialNumber: string }) => {
-          console.log('NFC tag read:', serialNumber);
-          abortRef.current?.abort();
-          setState('success');
-          // Vibrate on success
-          if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
-        });
-
-        reader.addEventListener('readingerror', () => {
-          abortRef.current?.abort();
-          setState('error');
-          if (navigator.vibrate) navigator.vibrate([300]);
-        });
-      } catch (err) {
-        console.log('NFC error:', err);
-        // User denied or not available — fall back to sim
-        setTimeout(() => setState('success'), 2500);
-      }
-    } else {
-      // Simulated scan
-      if (navigator.vibrate) navigator.vibrate(50);
-      setTimeout(() => {
-        if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
+      reader.addEventListener('reading', ({ serialNumber }: { serialNumber: string }) => {
+        console.log('NFC tag read:', serialNumber);
+        abortRef.current?.abort();
         setState('success');
-      }, 2500);
+        if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
+      });
+
+      reader.addEventListener('readingerror', () => {
+        abortRef.current?.abort();
+        setState('error');
+        if (navigator.vibrate) navigator.vibrate([300]);
+      });
+    } catch (err) {
+      console.log('NFC error:', err);
+      setState('error');
     }
   };
 
@@ -177,17 +171,22 @@ export default function ScanPage() {
           <h2 style={{ color: Colors.text, fontSize: 22, fontWeight: 800, margin: 0 }}>{copy.scan.readyTitle}</h2>
           <p style={{ color: Colors.accent, fontStyle: 'italic', marginBottom: 24, fontSize: 14 }}>{copy.scan.readySubtitle}</p>
 
-          <button
-            onClick={handleScan}
-            style={{
-              backgroundColor: Colors.accent, borderRadius: 16, padding: '16px 44px',
-              border: 'none', cursor: 'pointer', color: Colors.background, fontSize: 17, fontWeight: 800,
-              boxShadow: `0 4px 20px ${Colors.accent}40`,
-            }}
-          >☘️ {copy.scan.scanButton}</button>
-
-          {!nfcSupported && (
-            <p style={{ color: Colors.textMuted, fontSize: 11, fontStyle: 'italic', marginTop: 10 }}>{copy.scan.simNote}</p>
+          {nfcSupported ? (
+            <button
+              onClick={handleScan}
+              style={{
+                backgroundColor: Colors.accent, borderRadius: 16, padding: '16px 44px',
+                border: 'none', cursor: 'pointer', color: Colors.background, fontSize: 17, fontWeight: 800,
+                boxShadow: `0 4px 20px ${Colors.accent}40`,
+              }}
+            >☘️ {copy.scan.scanButton}</button>
+          ) : (
+            <div style={{ backgroundColor: Colors.surface, borderRadius: 14, padding: 16, border: `1px solid ${Colors.border}`, width: '100%' }}>
+              <div style={{ color: Colors.text, fontSize: 14, fontWeight: 700, marginBottom: 6 }}>📱 NFC not available</div>
+              <div style={{ color: Colors.textSecondary, fontSize: 12, lineHeight: 1.5 }}>
+                Use the physical NFC tag at the counter instead — just tap your phone on it, or visit the tag URL directly.
+              </div>
+            </div>
           )}
           {nfcSupported && (
             <p style={{ color: Colors.success, fontSize: 11, marginTop: 10, fontWeight: 600 }}>✓ Hold phone to NFC tag when ready</p>
@@ -215,14 +214,10 @@ export default function ScanPage() {
             <span style={{ fontSize: 56 }}>📡</span>
           </div>
           <h2 style={{ color: Colors.text, fontSize: 26, fontWeight: 800, margin: 0 }}>{copy.scan.scanningTitle}</h2>
-          <p style={{ color: Colors.textSecondary, marginTop: 8, fontSize: 14 }}>
-            {nfcSupported ? copy.scan.scanningSupported : copy.scan.scanningDemo}
+          <p style={{ color: Colors.textSecondary, marginTop: 8, fontSize: 14 }}>{copy.scan.scanningSupported}</p>
+          <p style={{ color: Colors.accent, fontSize: 12, marginTop: 16, fontWeight: 600 }}>
+            📱 Waiting for NFC tag...
           </p>
-          {nfcSupported && (
-            <p style={{ color: Colors.accent, fontSize: 12, marginTop: 16, fontWeight: 600 }}>
-              📱 Waiting for NFC tag...
-            </p>
-          )}
           <button onClick={reset} style={{ background: 'none', border: 'none', cursor: 'pointer', color: Colors.textMuted, marginTop: 24, fontSize: 13 }}>
             Cancel
           </button>

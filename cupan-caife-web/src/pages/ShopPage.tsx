@@ -1,13 +1,29 @@
+import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Colors } from '../constants/Colors';
 import { useLanguage } from '../contexts/LanguageContext';
 import shopsData from '../data/shops.json';
 import menuData from '../data/menu.json';
 
+function speakIrish(text: string) {
+  const audio = new Audio(
+    `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=ga&client=tw-ob`
+  );
+  audio.play().catch(() => {
+    if (!('speechSynthesis' in window)) return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'ga-IE';
+    utterance.rate = 0.85;
+    window.speechSynthesis.speak(utterance);
+  });
+}
+
 export default function ShopPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { copy } = useLanguage();
+  const [playingId, setPlayingId] = useState<string | null>(null);
   const shop = shopsData.find(s => s.id === id);
 
   if (!shop) {
@@ -78,16 +94,31 @@ export default function ShopPage() {
         <p style={{ color: Colors.accent, fontSize: 13, fontStyle: 'italic', marginBottom: 14 }}>{copy.shop.phrasesSubtitle}</p>
         {featuredItems.map(item => (
           <div key={item.id} style={{
-            display: 'flex', alignItems: 'center', backgroundColor: Colors.surface,
+            backgroundColor: Colors.surface,
             borderRadius: 14, padding: 14, marginBottom: 8, border: `1px solid ${Colors.border}`,
           }}>
-            <span style={{ fontSize: 32, marginRight: 14 }}>{item.emoji}</span>
-            <div>
-              <div style={{ color: Colors.text, fontSize: 15, fontWeight: 700 }}>{item.name}</div>
-              <div style={{ color: Colors.accent, fontSize: 13, fontWeight: 600, fontStyle: 'italic', marginTop: 4 }}>
-                "{item.orderPhrase}"
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <span style={{ fontSize: 32, marginRight: 14 }}>{item.emoji}</span>
+              <div style={{ flex: 1 }}>
+                <div style={{ color: Colors.text, fontSize: 15, fontWeight: 700 }}>{item.name}</div>
+                <div style={{ color: Colors.accent, fontSize: 13, fontWeight: 600, fontStyle: 'italic', marginTop: 4 }}>
+                  "{item.orderPhrase}"
+                </div>
+                <div style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 4 }}>🔊 {item.pronunciation}</div>
               </div>
-              <div style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 4 }}>🔊 {item.pronunciation}</div>
+              <button
+                onClick={() => {
+                  setPlayingId(item.id);
+                  speakIrish(item.orderPhrase);
+                  setTimeout(() => setPlayingId(null), 2500);
+                }}
+                style={{
+                  width: 40, height: 40, borderRadius: 20,
+                  backgroundColor: Colors.primary, border: `1px solid ${Colors.primaryLight}`,
+                  cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  fontSize: 18, flexShrink: 0, marginLeft: 8,
+                }}
+              >{playingId === item.id ? '🔊' : '▶️'}</button>
             </div>
           </div>
         ))}
