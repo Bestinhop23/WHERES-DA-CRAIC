@@ -19,6 +19,28 @@ CHECKPOINT_FILE = "enrichment_checkpoint.json"
 SEANFHOCAIL_CSV = "seanfhocail_50.csv"
 
 # Load seanfhocail (Irish proverbs) at startup
+<<<<<<< HEAD
+=======
+def load_seanfhocail():
+    """Loads Irish proverbs from CSV."""
+    proverbs = []
+    if not os.path.exists(SEANFHOCAIL_CSV):
+        print(f"Warning: {SEANFHOCAIL_CSV} not found. Using basic proverbs.")
+        return [
+            {"irish": "Ar scáth a chéile a mhaireann na daoine", "english": "People live in each other's shelter"},
+            {"irish": "Is fearr Gaeilge briste ná Béarla cliste", "english": "Broken Irish is better than clever English"},
+        ]
+    
+    with open(SEANFHOCAIL_CSV, mode='r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            proverbs.append({"irish": row['irish'], "english": row['english']})
+    return proverbs
+
+SEANFHOCAIL_LIST = load_seanfhocail()
+print(f"Loaded {len(SEANFHOCAIL_LIST)} seanfhocail (Irish proverbs)")
+
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
 def load_places():
     """Loads and filters towns, cities, and villages from the CSV."""
     places = []
@@ -55,9 +77,12 @@ def get_cultural_data(name, county):
     - 'etymology': The meaning of the Irish name and its origin.
     - 'folklore_myth': A local legend, ghost story, or mythological tale.
 <<<<<<< HEAD
+<<<<<<< HEAD
     - 'music_tradition': A specific song, tune, or musical heritage linked to this town.
 =======
 >>>>>>> main
+=======
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
     - 'poetry_lit': A famous poet, writer, or specific verse associated with the area.
     - 'history_landmarks': The most important historical events or ancient ruins nearby.
     - 'gaa_heritage': The local GAA club, their colors, and any sporting legends.
@@ -65,9 +90,12 @@ def get_cultural_data(name, county):
     - 'modern_culture': Current famous residents, festivals, or filming locations.
     - 'hidden_gem': A secret spot (holy well, hidden beach) tourists usually miss.
 <<<<<<< HEAD
+<<<<<<< HEAD
     - 'local_phrase': One Irish language word/phrase common to the area + phonetic pronunciation + meaning.
 =======
 >>>>>>> main
+=======
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
     - 'multimedia_query': A specific string I can use to search YouTube/Spotify for a relevant local song.
     
     Return ONLY the raw JSON object.
@@ -151,11 +179,17 @@ if __name__ == "__main__":
             cultural_info = get_cultural_data(place['name'], place['county'])
             if cultural_info:
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
                 # Add a random seanfhocail to each place
                 random_seanfhocail = random.choice(SEANFHOCAIL_LIST)
                 cultural_info['seanfhocail'] = random_seanfhocail
 >>>>>>> main
+=======
+                # Add a random seanfhocail to each place
+                random_seanfhocail = random.choice(SEANFHOCAIL_LIST)
+                cultural_info['seanfhocail'] = random_seanfhocail
+>>>>>>> 3a46950cafeebd51bcbc89c49a23bbaf1e84e70e
                 enriched_data[place_id] = cultural_info
                 count += 1
                 

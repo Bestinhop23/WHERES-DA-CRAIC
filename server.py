@@ -34,6 +34,8 @@ def get_data():
         reader = csv.DictReader(f)
         for row in reader:
             place_id = f"{row['name']}_{row['lat']}_{row['lon']}"
+=======
+            
             # ONLY include places that are in the checkpoint
             if place_id not in enriched_data:
                 continue
@@ -57,6 +59,8 @@ def get_data():
             except Exception as e:
                 print(f"Error processing {row['name']}: {e}")
                 continue
+=======
+    
     geojson = {
         "type": "FeatureCollection",
         "features": features
