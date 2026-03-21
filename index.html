@@ -698,7 +698,7 @@
             if (!layer || !layer.feature) return;
             const props = layer.feature.properties;
 
-            // Reset previous marker ring
+            // Reset previous marker ring and label
             if (activePanelLayer && activePanelLayer !== layer) {
                 const prevProps = activePanelLayer.feature ? activePanelLayer.feature.properties : {};
                 const prevCity = prevProps.type === 'city';
@@ -709,6 +709,7 @@
                     weight: 1,
                     radius: prevCity ? 8 : 6
                 });
+                activePanelLayer.unbindTooltip();
             }
 
             activePanelLayer = layer;
@@ -966,8 +967,9 @@
         // =====================================================================
         // Routing
         // =====================================================================
-        const CORRIDOR_PADDING_KM = 25;
+        const CORRIDOR_PADDING_KM = 15;
         const MAX_WAYPOINTS = 12;
+        const MAX_HOP_DETOUR_KM = 18; // max extra km any single waypoint may add vs going direct
 
         let fromPlace = null;
         let toPlace = null;
@@ -1187,6 +1189,9 @@
                         const t = remaining[i];
                         if (haversineKm(t.lat, t.lon, B.lat, B.lon) >= curDistToB) continue;
                         const d = haversineKm(curLat, curLon, t.lat, t.lon);
+                        // Skip towns that add too much sideways detour from current position
+                        const hopDetour = d + haversineKm(t.lat, t.lon, B.lat, B.lon) - curDistToB;
+                        if (hopDetour > MAX_HOP_DETOUR_KM) continue;
                         if (d < bestDist) { bestDist = d; bestIdx = i; }
                     }
                     if (bestIdx === -1) break;
