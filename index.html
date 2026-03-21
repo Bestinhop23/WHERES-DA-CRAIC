@@ -215,26 +215,6 @@
                 document.getElementById('loading').style.background = "rgba(255, 100, 100, 0.8)";
             }
         }
-                L.geoJSON(data, {
-                    pointToLayer: function(feature, latlng) {
-                        return L.circleMarker(latlng, {
-                            radius: feature.properties.type === 'city' ? 8 : 6,
-                            fillColor: "#1a5e3c",
-                            color: "#fff",
-                            weight: 1,
-                            opacity: 1,
-                            fillOpacity: 0.8
-                        });
-                    },
-                    onEachFeature: function(feature, layer) {
-                        layer.bindPopup(createPopup(feature.properties));
-                    }
-                }).addTo(map);
-            } catch (err) {
-                console.error("Error loading data:", err);
-                document.getElementById('loading').innerText = "Failed to load data. Is the server running?";
-            }
-        }
 
         loadData();
         

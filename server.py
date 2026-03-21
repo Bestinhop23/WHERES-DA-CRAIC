@@ -35,24 +35,12 @@ def get_data():
         for row in reader:
             place_id = f"{row['name']}_{row['lat']}_{row['lon']}"
             
-            # Include all places: enriched ones get full data, others get basic data
+            # ONLY include places that are in the checkpoint
+            if place_id not in enriched_data:
+                continue
+                
             try:
-                if place_id in enriched_data:
-                    culture = enriched_data[place_id]
-                else:
-                    # Basic fallback data for non-enriched places
-                    culture = {
-                        "etymology": "Data pending enrichment",
-                        "folklore_myth": "Coming soon...",
-                        "poetry_lit": "Coming soon...",
-                        "history_landmarks": [],
-                        "gaa_heritage": {"club_name": "TBD", "colors": "TBD"},
-                        "famous_people": [],
-                        "modern_culture": {},
-                        "hidden_gem": "Coming soon...",
-                        "seanfhocail": {"irish": "Ar scáth a chéile a mhaireann na daoine", "english": "People live in each other's shelter"},
-                        "multimedia_query": row['name']
-                    }
+                culture = enriched_data[place_id]
                 
                 feature = {
                     "type": "Feature",
