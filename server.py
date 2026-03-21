@@ -27,6 +27,7 @@ def get_data():
                 enriched_data = json.load(f)
         except Exception as e:
             print(f"Error loading checkpoint: {e}")
+            return jsonify({"error": f"Checkpoint file corrupted: {str(e)}"}), 404
 
     features = []
     with open(INPUT_CSV, mode='r', encoding='utf-8') as f:
@@ -34,9 +35,24 @@ def get_data():
         for row in reader:
             place_id = f"{row['name']}_{row['lat']}_{row['lon']}"
             
-            # Only include towns, cities, villages that have been enriched
-            if place_id in enriched_data:
-                culture = enriched_data[place_id]
+            # Include all places: enriched ones get full data, others get basic data
+            try:
+                if place_id in enriched_data:
+                    culture = enriched_data[place_id]
+                else:
+                    # Basic fallback data for non-enriched places
+                    culture = {
+                        "etymology": "Data pending enrichment",
+                        "folklore_myth": "Coming soon...",
+                        "poetry_lit": "Coming soon...",
+                        "history_landmarks": [],
+                        "gaa_heritage": {"club_name": "TBD", "colors": "TBD"},
+                        "famous_people": [],
+                        "modern_culture": {},
+                        "hidden_gem": "Coming soon...",
+                        "seanfhocail": {"irish": "Ar scáth a chéile a mhaireann na daoine", "english": "People live in each other's shelter"},
+                        "multimedia_query": row['name']
+                    }
                 
                 feature = {
                     "type": "Feature",
@@ -46,13 +62,16 @@ def get_data():
                     },
                     "properties": {
                         "name": row['name'],
-                        "name_ga": row['name_ga'],
-                        "county": row['county'],
+                        "name_ga": row['name_ga'] or row['name'],
+                        "county": row['county'] or "Ireland",
                         "type": row['type'],
                         **culture
                     }
                 }
                 features.append(feature)
+            except Exception as e:
+                print(f"Error processing {row['name']}: {e}")
+                continue
     
     geojson = {
         "type": "FeatureCollection",
