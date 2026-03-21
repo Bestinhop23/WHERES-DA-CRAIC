@@ -409,31 +409,50 @@
             font-weight: 500;
         }
 
-        #route-towns {
-            margin-top: 6px;
-            max-height: 200px;
-            overflow-y: auto;
-        }
-
         .route-town-item {
             display: flex;
             align-items: center;
-            padding: 6px 8px;
+            padding: 3px 8px;
             border-radius: 6px;
             cursor: pointer;
             font-size: 0.82rem;
             color: #333;
             gap: 8px;
+            position: relative;
         }
 
         .route-town-item:hover { background: #e8f5e9; color: #1a5e3c; }
+
+        /* Vertical connector line between dots */
+        .route-town-item:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            left: 12px; /* 8px padding + 4px = centre of 10px dot */
+            top: 24px;  /* below dot centre */
+            width: 2px;
+            height: 12px;
+            background: #e0e0e0;
+            border-radius: 1px;
+            transition: background 0.3s;
+        }
+
+        /* Line turns orange once that stop is done */
+        .route-town-item.tour-done:not(:last-child)::after {
+            background: #e67e22;
+        }
 
         .route-town-dot {
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            background: #e67e22;
+            background: #ddd;  /* grey by default */
             flex-shrink: 0;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+
+        /* Visited dots go orange */
+        .route-town-item.tour-done .route-town-dot {
+            background: #e67e22;
         }
 
         .route-town-county {
@@ -448,10 +467,13 @@
             font-weight: 600;
         }
 
+        /* Active dot: green pulse */
         .route-town-item.tour-active .route-town-dot {
             background: #1a5e3c;
             box-shadow: 0 0 0 3px rgba(26,94,60,0.25);
         }
+
+        /* Not-yet-visited dots stay grey, line stays grey (default) */
 
         #tour-btn, #tour-stop-btn {
             width: 100%;
@@ -1328,7 +1350,11 @@
             }
             const m = routeTownMatches[tourIndex];
 
-            tourItems.forEach(el => el.classList.remove('tour-active'));
+            // Mark all previous items as done, current as active
+            tourItems.forEach(function(el, i) {
+                el.classList.remove('tour-active', 'tour-done');
+                if (i < tourIndex) el.classList.add('tour-done');
+            });
             if (tourItems[tourIndex]) {
                 tourItems[tourIndex].classList.add('tour-active');
                 tourItems[tourIndex].scrollIntoView({ block: 'nearest' });
@@ -1341,7 +1367,7 @@
                 tourTimeout = setTimeout(function() {
                     tourIndex++;
                     playTourStep();
-                }, 15000);
+                }, 8000);
             });
         }
 
@@ -1421,7 +1447,8 @@
                 townsEl.appendChild(item);
             });
             townsEl.style.display = 'block';
-            document.getElementById('tour-btn').style.display = 'block';
+            // Don't re-show play button if tour is already running
+            if (!tourActive) document.getElementById('tour-btn').style.display = 'block';
         }
 
         function reapplyRouteHighlights() {
