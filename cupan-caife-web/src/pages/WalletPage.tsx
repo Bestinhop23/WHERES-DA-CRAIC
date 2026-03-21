@@ -8,7 +8,7 @@ const REDEEM_COST = 100;
 const REDEEM_VALUE = '€5';
 
 export default function WalletPage() {
-  const { balance, history, addCoins } = useCraicCoins();
+  const { balance, history, addCoins, resetAll } = useCraicCoins();
   const navigate = useNavigate();
   const { copy } = useLanguage();
   const [redeemed, setRedeemed] = useState(false);
@@ -234,6 +234,22 @@ export default function WalletPage() {
             </div>
           ))
         )}
+      </div>
+
+      {/* Clear all data */}
+      <div style={{ padding: '24px 20px 0' }}>
+        <button
+          onClick={() => {
+            if (confirm('Clear all CraicCoins, visited places, and event history?')) {
+              resetAll();
+            }
+          }}
+          style={{
+            width: '100%', backgroundColor: 'transparent', borderRadius: 12,
+            padding: '12px 20px', border: `1px solid ${Colors.error || '#e53935'}40`,
+            cursor: 'pointer', color: Colors.error || '#e53935', fontSize: 13, fontWeight: 600,
+          }}
+        >🗑️ Clear All Data</button>
       </div>
 
       <div style={{ height: 100 }} />

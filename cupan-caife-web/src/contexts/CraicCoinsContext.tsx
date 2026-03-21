@@ -11,12 +11,14 @@ type CraicCoinsContextType = {
   balance: number;
   history: ScanEntry[];
   addCoins: (shopId: string, shopName: string, coins?: number) => void;
+  resetAll: () => void;
 };
 
 const CraicCoinsContext = createContext<CraicCoinsContextType>({
   balance: 0,
   history: [],
   addCoins: () => {},
+  resetAll: () => {},
 });
 
 const STORAGE_KEY = 'craic-coins';
@@ -42,8 +44,16 @@ export function CraicCoinsProvider({ children }: { children: ReactNode }) {
     setHistory(h => [{ shopId, shopName, coins, timestamp: Date.now() }, ...h]);
   };
 
+  const resetAll = () => {
+    setBalance(0);
+    setHistory([]);
+    localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem('craic-visited-places');
+    localStorage.removeItem('craic-visited-events');
+  };
+
   return (
-    <CraicCoinsContext.Provider value={{ balance, history, addCoins }}>
+    <CraicCoinsContext.Provider value={{ balance, history, addCoins, resetAll }}>
       {children}
     </CraicCoinsContext.Provider>
   );
