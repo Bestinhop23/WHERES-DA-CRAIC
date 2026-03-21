@@ -120,7 +120,8 @@ async function recordAndRecognise(): Promise<string> {
             body: JSON.stringify({ recogniseBlob: base64, developer: true, method: 'online2bin' }),
           });
           const data = await res.json();
-          resolve(data.transcription || data.text || JSON.stringify(data));
+          const utterance = data?.transcriptions?.[0]?.utterance || data?.transcription || data?.text || '';
+          resolve(utterance);
         } catch {
           reject('Recognition failed');
         }
