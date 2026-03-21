@@ -1,6 +1,6 @@
 # WHERES-DA-CRAIC 🗺️
 
-A deep culture map of Ireland that fetches Irish towns, cities, and villages, enriches them with cultural information using AI, and displays them on an interactive web map.
+A deep culture map of Ireland that fetches Irish towns, cities, and villages, enriches them with cultural information using AI, and displays them on an interactive web map. It's cool.
 
 ## Overview
 
