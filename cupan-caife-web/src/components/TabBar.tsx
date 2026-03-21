@@ -6,7 +6,7 @@ import { useCraicCoins } from '../contexts/CraicCoinsContext';
 export default function TabBar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { copy } = useLanguage();
+  const { copy, language, setLanguage } = useLanguage();
   const { balance } = useCraicCoins();
 
   if (location.pathname === '/' || location.pathname.startsWith('/tag/')) return null;
@@ -14,6 +14,7 @@ export default function TabBar() {
   const tabs = [
     { path: '/map', label: copy.tabs.map, icon: '🗺️' },
     { path: '/scan', label: copy.tabs.scan, icon: '📱' },
+    { path: '/planner', label: 'Planner', icon: '🏛️' },
     { path: '/wallet', label: `☘️ ${balance}`, icon: '💰' },
   ];
 
@@ -49,6 +50,24 @@ export default function TabBar() {
           </button>
         );
       })}
+      <button
+        onClick={() => setLanguage(language === 'ga' ? 'en' : 'ga')}
+        style={{
+          flex: 1,
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 4,
+          padding: '8px 0 12px',
+          background: 'none',
+          border: 'none',
+          cursor: 'pointer',
+          color: Colors.textMuted,
+        }}
+      >
+        <span style={{ fontSize: 24 }}>{language === 'ga' ? '🇮🇪' : '🇬🇧'}</span>
+        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.5 }}>{language === 'ga' ? 'GA' : 'EN'}</span>
+      </button>
     </div>
   );
 }

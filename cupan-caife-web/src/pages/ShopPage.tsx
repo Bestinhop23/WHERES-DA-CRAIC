@@ -5,18 +5,28 @@ import { useLanguage } from '../contexts/LanguageContext';
 import shopsData from '../data/shops.json';
 import menuData from '../data/menu.json';
 
-function speakIrish(text: string) {
-  const audio = new Audio(
-    `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=ga&client=tw-ob`
-  );
-  audio.play().catch(() => {
+async function speakIrish(text: string) {
+  try {
+    const res = await fetch('https://api.abair.ie/v3/synthesis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        synthinput: { text },
+        voiceparams: { languageCode: 'ga-IE', name: 'ga_CO_snc_piper' },
+        audioconfig: { audioEncoding: 'MP3', speakingRate: 1, pitch: 1 },
+      }),
+    });
+    const data = await res.json();
+    const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+    audio.play();
+  } catch {
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ga-IE';
     utterance.rate = 0.85;
     window.speechSynthesis.speak(utterance);
-  });
+  }
 }
 
 export default function ShopPage() {
@@ -118,7 +128,7 @@ export default function ShopPage() {
                   cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
                   fontSize: 18, flexShrink: 0, marginLeft: 8,
                 }}
-              >{playingId === item.id ? '🔊' : '▶️'}</button>
+              >{playingId === item.id ? '🔊' : '🔈'}</button>
             </div>
           </div>
         ))}

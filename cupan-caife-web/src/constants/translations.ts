@@ -70,7 +70,7 @@ type Copy = {
 
 export const appCopy: Record<AppLanguage, Copy> = {
   ga: {
-    tabs: { map: 'L\u00e9arsc\u00e1il', scan: 'Scanadh' },
+    tabs: { map: 'Caif\u00e9', scan: 'Scanadh' },
     home: {
       eyebrow: 'Cupan Caife',
       title: 'Roghnaigh do theanga',
@@ -134,7 +134,7 @@ export const appCopy: Record<AppLanguage, Copy> = {
     },
   },
   en: {
-    tabs: { map: 'Map', scan: 'Scan' },
+    tabs: { map: 'Coffee', scan: 'Scan' },
     home: {
       eyebrow: 'Cupan Caife',
       title: 'Choose your language',

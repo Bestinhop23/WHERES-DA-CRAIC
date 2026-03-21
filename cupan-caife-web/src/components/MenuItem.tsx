@@ -13,24 +13,36 @@ type MenuItemData = {
   pronunciation: string;
 };
 
-function speakIrish(text: string) {
-  const audio = new Audio(
-    `https://translate.google.com/translate_tts?ie=UTF-8&q=${encodeURIComponent(text)}&tl=ga&client=tw-ob`
-  );
-  audio.play().catch(() => {
-    // Fallback to Web Speech API if Google TTS blocked
+async function speakIrish(text: string, onCredit: () => void) {
+  try {
+    const res = await fetch('https://api.abair.ie/v3/synthesis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        synthinput: { text },
+        voiceparams: { languageCode: 'ga-IE', name: 'ga_CO_snc_piper' },
+        audioconfig: { audioEncoding: 'MP3', speakingRate: 1, pitch: 1 },
+      }),
+    });
+    const data = await res.json();
+    const audio = new Audio(`data:audio/mp3;base64,${data.audioContent}`);
+    audio.play();
+    onCredit();
+  } catch {
+    // Fallback to Web Speech API
     if (!('speechSynthesis' in window)) return;
     window.speechSynthesis.cancel();
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'ga-IE';
     utterance.rate = 0.85;
     window.speechSynthesis.speak(utterance);
-  });
+  }
 }
 
 export default function MenuItem({ item }: { item: MenuItemData }) {
   const [expanded, setExpanded] = useState(false);
   const [playing, setPlaying] = useState(false);
+  const [showCredit, setShowCredit] = useState(false);
   const discount = Math.round((1 - item.discountPrice / item.price) * 100);
 
   return (
@@ -84,8 +96,11 @@ export default function MenuItem({ item }: { item: MenuItemData }) {
             onClick={(e) => {
               e.stopPropagation();
               setPlaying(true);
-              speakIrish(item.orderPhrase);
-              setTimeout(() => setPlaying(false), 2500);
+              speakIrish(item.orderPhrase, () => {
+                setShowCredit(true);
+                setTimeout(() => setShowCredit(false), 2000);
+              });
+              setTimeout(() => setPlaying(false), 3000);
             }}
             style={{
               width: '100%',
@@ -100,11 +115,19 @@ export default function MenuItem({ item }: { item: MenuItemData }) {
               gap: 8,
             }}
           >
-            <span style={{ fontSize: 18 }}>{playing ? '🔊' : '▶️'}</span>
+            <span style={{ fontSize: 18 }}>{playing ? '🔊' : '🔈'}</span>
             <span style={{ color: Colors.text, fontSize: 14, fontWeight: 700 }}>
               {playing ? 'Playing...' : 'Hear it spoken'}
             </span>
           </button>
+          {showCredit && (
+            <div style={{
+              marginTop: 6, textAlign: 'center', color: Colors.textMuted, fontSize: 10,
+              fontStyle: 'italic', opacity: 0.8,
+            }}>
+              Powered by abair.ie (Trinity College Dublin)
+            </div>
+          )}
         </div>
       )}
     </div>
