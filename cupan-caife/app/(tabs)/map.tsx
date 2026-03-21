@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router';
 import { Colors } from '../../constants/Colors';
 import { darkMapStyle } from '../../constants/MapStyle';
 import shopsData from '../../data/shops.json';
+import { getSeanfhocalForShop } from '../../data/getSeanfhocalForShop';
 
 const { width, height } = Dimensions.get('window');
 
@@ -20,11 +21,20 @@ type Shop = (typeof shopsData)[number];
 
 export default function MapScreen() {
   const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
+  const [showSeanfhocalNotif, setShowSeanfhocalNotif] = useState(false);
+  const [notifSeanfhocal, setNotifSeanfhocal] = useState<{irish: string, english: string} | null>(null);
   const mapRef = useRef<MapView>(null);
   const router = useRouter();
 
   const handleMarkerPress = (shop: Shop) => {
     setSelectedShop(shop);
+    // Get seanfhocal for this shop
+    const seanfhocal = getSeanfhocalForShop(shop);
+    if (seanfhocal) {
+      setNotifSeanfhocal({ irish: seanfhocal.seanfhocal_irish, english: seanfhocal.seanfhocal_english });
+      setShowSeanfhocalNotif(true);
+      setTimeout(() => setShowSeanfhocalNotif(false), 3500);
+    }
     mapRef.current?.animateToRegion(
       {
         latitude: shop.latitude - 0.003,
@@ -82,6 +92,15 @@ export default function MapScreen() {
         </Text>
       </View>
 
+      {/* Seanfhocal notification */}
+      {showSeanfhocalNotif && notifSeanfhocal && (
+        <View style={styles.seanfhocalNotif}>
+          <Text style={styles.seanfhocalNotifTitle}>New Seanfhocal Unlocked!</Text>
+          <Text style={styles.seanfhocalNotifIrish}>{notifSeanfhocal.irish}</Text>
+          <Text style={styles.seanfhocalNotifEnglish}>{notifSeanfhocal.english}</Text>
+        </View>
+      )}
+
       {/* Bottom sheet for selected shop */}
       {selectedShop && (
         <View style={styles.bottomSheet}>
@@ -138,6 +157,41 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   map: {
+      seanfhocalNotif: {
+        position: 'absolute',
+        top: 120,
+        left: 32,
+        right: 32,
+        backgroundColor: Colors.primary,
+        borderRadius: 16,
+        padding: 18,
+        alignItems: 'center',
+        zIndex: 1000,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 8,
+        elevation: 10,
+      },
+      seanfhocalNotifTitle: {
+        color: Colors.surface,
+        fontSize: 16,
+        fontWeight: '700',
+        marginBottom: 6,
+      },
+      seanfhocalNotifIrish: {
+        color: Colors.surface,
+        fontSize: 15,
+        fontWeight: '600',
+        fontStyle: 'italic',
+        marginBottom: 2,
+      },
+      seanfhocalNotifEnglish: {
+        color: Colors.surface,
+        fontSize: 13,
+        fontStyle: 'italic',
+        opacity: 0.85,
+      },
     width: width,
     height: height,
   },
