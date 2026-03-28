@@ -27,6 +27,7 @@ export default function ScanPage() {
 
   const isGA = language === 'ga';
   const steps = isGA ? STEPS_GA : STEPS_EN;
+  const nfcTabPubs = (pubsData as Pub[]).filter((pub) => pub.signedUp);
 
   const handleManualRedeem = () => {
     const code = manualCode.trim();
@@ -71,18 +72,25 @@ export default function ScanPage() {
         <p style={{ color: 'var(--muted)', fontSize: '0.82rem', marginBottom: 12 }}>
           {isGA ? 'Tapail NFC in aon tabhairne den liosta seo.' : 'Tap NFC at any of these pubs to earn CraicCoins.'}
         </p>
-        <div style={{ display: 'grid', gap: 8 }}>
-          {(pubsData as Pub[]).slice(0, 8).map((pub) => (
-            <div key={pub.id} style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1px solid var(--line)', borderRadius: 12, padding: '10px 14px', background: 'var(--surface)' }}>
-              <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'rgba(123,45,0,0.15)', border: '1px solid rgba(212,114,42,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🍺</div>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>{pub.name}</div>
-                <div style={{ color: 'var(--muted)', fontSize: '0.75rem', marginTop: 1 }}>{pub.address}</div>
+        {nfcTabPubs.length === 0 && (
+          <div style={{ color: 'var(--muted)', fontSize: '0.84rem', fontStyle: 'italic' }}>
+            {isGA ? 'Níl aon tabhairne sínithe suas sa chluaisín NFC faoi láthair.' : 'No signed-up pubs are shown in the NFC tab right now.'}
+          </div>
+        )}
+        {nfcTabPubs.length > 0 && (
+          <div style={{ display: 'grid', gap: 8 }}>
+            {nfcTabPubs.slice(0, 8).map((pub) => (
+              <div key={pub.id} style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1px solid var(--line)', borderRadius: 12, padding: '10px 14px', background: 'var(--surface)' }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'rgba(123,45,0,0.15)', border: '1px solid rgba(212,114,42,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🍺</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>{pub.name}</div>
+                  <div style={{ color: 'var(--muted)', fontSize: '0.75rem', marginTop: 1 }}>{pub.address}</div>
+                </div>
+                <div style={{ background: 'rgba(22,155,98,0.12)', border: '1px solid rgba(22,155,98,0.25)', borderRadius: 8, padding: '3px 8px', fontSize: '0.65rem', fontWeight: 800, color: '#169B62' }}>NFC</div>
               </div>
-              <div style={{ background: 'rgba(22,155,98,0.12)', border: '1px solid rgba(22,155,98,0.25)', borderRadius: 8, padding: '3px 8px', fontSize: '0.65rem', fontWeight: 800, color: '#169B62' }}>NFC</div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
         <button className="btn btn-ghost" style={{ width: '100%', marginTop: 12, padding: '10px 0' }} onClick={() => navigate('/map?mode=pubs')}>
           {isGA ? 'Feach ar an learscail' : 'View on map'}
         </button>
