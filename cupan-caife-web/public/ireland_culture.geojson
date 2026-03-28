@@ -156,52 +156,6 @@
       "geometry": {
         "type": "Point",
         "coordinates": [
-          -5.3325258,
-          55.5018269
-        ]
-      },
-      "properties": {
-        "name": "Blackwaterfoot",
-        "name_ga": "Bun na Dubh-Abhainn",
-        "county": "",
-        "type": "village",
-        "etymology": {
-          "name": "Blackwaterfoot",
-          "meaning": "The name is derived from the nearby Blackwater River, which takes its name from the dark peaty waters of the river that flows into the sea.",
-          "origin": "Irish roots with historical English influence."
-        },
-        "folklore_myth": "In days of yore, the village was said to be haunted by the spirit of a local fisherman who perished in a storm while trying to save his crew. Locals would often hear the echoes of his boat creaking and the sound of distant laughter on stormy nights.",
-        "music_tradition": "One of the notable tunes associated with Blackwaterfoot is 'The Blackwater Jig,' a lively traditional Irish dance tune often played at local gatherings.",
-        "poetry_lit": {
-          "poet": "John Montague",
-          "work": "Montague's poetry often captures the essence of rural Ireland, making his works an essential part of local literary heritage."
-        },
-        "history_landmarks": "Nearby, you can find the ruins of an ancient monastery dating back to the 6th century, a testament to the region's long-standing Christian heritage.",
-        "gaa_heritage": {
-          "club": "Blackwaterfoot GAA",
-          "colors": "Green and Gold",
-          "legends": "The club has produced several county champions and celebrated sportsmen, including the legendary midfielder Sean O'Leary."
-        },
-        "famous_people": "Local poet John Montague and renowned fishermen like Seamus McCarthy, whose stories of the sea have inspired many.",
-        "modern_culture": {
-          "residents": "The town is home to several artists and musicians who keep the traditional culture alive.",
-          "festivals": "Every summer, the Blackwaterfoot Heritage Festival celebrates local music, food, and arts.",
-          "filming_locations": "The stunning landscapes have been featured in films showcasing the natural beauty of Ireland."
-        },
-        "hidden_gem": "A hidden cove near the cliffs, known locally as 'Gorm's Well,' is a tranquil picnic spot where locals often come to pray and reflect.",
-        "local_phrase": {
-          "phrase": "Sláinte",
-          "phonetic": "Slawn-cha",
-          "meaning": "Cheers, a toast to health often used in pubs and gatherings."
-        },
-        "multimedia_query": "Blackwaterfoot Irish music"
-      }
-    },
-    {
-      "type": "Feature",
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
           -7.8490283,
           53.3504097
         ]

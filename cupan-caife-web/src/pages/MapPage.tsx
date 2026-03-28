@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
 import L from 'leaflet';
 import { Colors } from '../constants/Colors';
 import { useCraicCoins } from '../contexts/CraicCoinsContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { createCheckin, fetchPub, redeemPub } from '../lib/api';
 import { getDeviceFingerprint } from '../lib/user';
-import shopsData from '../data/shops.json';
 import pubsData from '../data/pubs.json';
 
-type Mode = 'cafes' | 'pubs' | 'culture';
+type Mode = 'culture';
 
 type Venue = {
   id: string;
@@ -23,7 +21,11 @@ type Venue = {
   description: string;
   website?: string;
   phone?: string;
+  signedUp?: boolean;
 };
+
+type PubFilter = 'all' | 'signed' | 'unsigned';
+type MarkerView = 'all' | 'pubs' | 'places';
 
 type CultureFeature = {
   type: 'Feature';
@@ -47,12 +49,34 @@ type CultureGeoJSON = {
   features: CultureFeature[];
 };
 
+type Seanfhocal = {
+  irish: string;
+  english: string;
+};
+
+const PRACTICE_RECORDING_MS = 7000;
+const PRACTICE_SECONDS = Math.floor(PRACTICE_RECORDING_MS / 1000);
+
 const VISITED_CULTURE_KEY = 'craic-visited-culture';
 
 const CENTERS: Record<Mode, [number, number]> = {
-  cafes: [53.3438, -6.2588],
-  pubs: [53.273, -9.051],
   culture: [53.35, -7.26],
+};
+
+type RouteSuggestion = {
+  pub: Venue;
+  distanceKm: number;
+};
+
+type PlaceSearchResult = {
+  id: string;
+  kind: 'pub' | 'culture';
+  name: string;
+  subtitle: string;
+  lat: number;
+  lon: number;
+  pub?: Venue;
+  culture?: CultureFeature;
 };
 
 function haversineMetres(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -62,6 +86,48 @@ function haversineMetres(lat1: number, lon1: number, lat2: number, lon2: number)
   const dLon = toRad(lon2 - lon1);
   const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function distancePointToSegmentKm(lat: number, lon: number, aLat: number, aLon: number, bLat: number, bLon: number): number {
+  const kmPerDegLat = 111.32;
+  const cosLat = Math.cos(((lat + aLat + bLat) / 3) * Math.PI / 180);
+  const kmPerDegLon = 111.32 * Math.max(0.2, cosLat);
+
+  const px = lon * kmPerDegLon;
+  const py = lat * kmPerDegLat;
+  const ax = aLon * kmPerDegLon;
+  const ay = aLat * kmPerDegLat;
+  const bx = bLon * kmPerDegLon;
+  const by = bLat * kmPerDegLat;
+
+  const dx = bx - ax;
+  const dy = by - ay;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) {
+    const ddx = px - ax;
+    const ddy = py - ay;
+    return Math.sqrt(ddx * ddx + ddy * ddy);
+  }
+
+  let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+  t = Math.max(0, Math.min(1, t));
+  const cx = ax + t * dx;
+  const cy = ay + t * dy;
+  const ex = px - cx;
+  const ey = py - cy;
+  return Math.sqrt(ex * ex + ey * ey);
+}
+
+function distanceToPolylineKm(lat: number, lon: number, points: [number, number][]): number {
+  if (points.length < 2) return Number.POSITIVE_INFINITY;
+  let minDist = Number.POSITIVE_INFINITY;
+  for (let i = 1; i < points.length; i += 1) {
+    const prev = points[i - 1];
+    const next = points[i];
+    const d = distancePointToSegmentKm(lat, lon, prev[0], prev[1], next[0], next[1]);
+    if (d < minDist) minDist = d;
+  }
+  return minDist;
 }
 
 function getVisitedCulture(): string[] {
@@ -106,14 +172,21 @@ async function speakIrish(text: string): Promise<void> {
   }
 }
 
-async function recordAndRecognise(): Promise<string> {
+async function recordAndRecognise(onRecorderReady?: (stop: () => void) => void): Promise<string> {
   const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
   const chunks: Blob[] = [];
 
   return new Promise((resolve, reject) => {
+    const stopRecorder = () => {
+      if (recorder.state !== 'inactive') recorder.stop();
+    };
+
+    onRecorderReady?.(stopRecorder);
+
     recorder.ondataavailable = (event) => chunks.push(event.data);
     recorder.onstop = async () => {
+      window.clearTimeout(autoStopId);
       stream.getTracks().forEach((track) => track.stop());
       const blob = new Blob(chunks, { type: 'audio/webm' });
       const reader = new FileReader();
@@ -136,7 +209,7 @@ async function recordAndRecognise(): Promise<string> {
     };
 
     recorder.start();
-    window.setTimeout(() => recorder.stop(), 3500);
+    const autoStopId = window.setTimeout(stopRecorder, PRACTICE_RECORDING_MS);
   });
 }
 
@@ -149,23 +222,67 @@ function similarityScore(a: string, b: string): number {
   return Math.round((matches / Math.max(A.length, B.length)) * 100);
 }
 
+function parseSeanfhocailCsv(csvText: string): Seanfhocal[] {
+  return csvText
+    .split(/\r?\n/)
+    .slice(1)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const firstComma = line.indexOf(',');
+      if (firstComma === -1) return null;
+      const irish = line.slice(0, firstComma).trim().replace(/^"|"$/g, '');
+      const english = line.slice(firstComma + 1).trim().replace(/^"|"$/g, '');
+      if (!irish || !english) return null;
+      return { irish, english };
+    })
+    .filter((item): item is Seanfhocal => item !== null);
+}
+
+function hashText(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = (hash << 5) - hash + value.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash);
+}
+
+function capByDistanceToCenter<T>(
+  items: T[],
+  maxItems: number,
+  centerLat: number,
+  centerLon: number,
+  getLatLon: (item: T) => [number, number]
+): T[] {
+  if (items.length <= maxItems) return items;
+  return [...items]
+    .sort((a, b) => {
+      const [aLat, aLon] = getLatLon(a);
+      const [bLat, bLon] = getLatLon(b);
+      const aDist = haversineMetres(centerLat, centerLon, aLat, aLon);
+      const bDist = haversineMetres(centerLat, centerLon, bLat, bLon);
+      if (aDist !== bDist) return aDist - bDist;
+      if (aLat !== bLat) return aLat - bLat;
+      return aLon - bLon;
+    })
+    .slice(0, maxItems);
+}
+
 export default function MapPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const { language } = useLanguage();
   const { userID, syncWallet, addCoins } = useCraicCoins();
 
-  const requestedMode = searchParams.get('mode');
-  const initialMode: Mode = requestedMode === 'pubs' || requestedMode === 'culture' ? requestedMode : 'cafes';
-
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<L.Marker[]>([]);
+  const markersRef = useRef<L.Layer[]>([]);
+  const routeLineRef = useRef<L.Polyline | null>(null);
+  const routePinRef = useRef<L.Marker[]>([]);
 
-  const [mode, setMode] = useState<Mode>(initialMode);
   const [selectedVenue, setSelectedVenue] = useState<Venue | null>(null);
   const [selectedCulture, setSelectedCulture] = useState<CultureFeature | null>(null);
   const [cultureFeatures, setCultureFeatures] = useState<CultureFeature[]>([]);
+  const [seanfhocail, setSeanfhocail] = useState<Seanfhocal[]>([]);
   const [visitedCulture, setVisitedCulture] = useState<string[]>(getVisitedCulture());
   const [userPos, setUserPos] = useState<{ lat: number; lng: number } | null>(null);
   const [pubPhrase, setPubPhrase] = useState('Pionta Guinness, le do thoil.');
@@ -176,21 +293,39 @@ export default function MapPage() {
   const [coinToast, setCoinToast] = useState<{ open: boolean; label: string }>({ open: false, label: '' });
   const [recognition, setRecognition] = useState<{ text: string; score: number } | null>(null);
   const [recording, setRecording] = useState(false);
+  const stopRecordingRef = useRef<(() => void) | null>(null);
+  const [routeFrom, setRouteFrom] = useState('');
+  const [routeTo, setRouteTo] = useState('');
+  const [routeSummary, setRouteSummary] = useState('');
+  const [routePubs, setRoutePubs] = useState<RouteSuggestion[]>([]);
+  const [planningRoute, setPlanningRoute] = useState(false);
+  const [plannerOpen, setPlannerOpen] = useState(false);
+  const [pubFilter, setPubFilter] = useState<PubFilter>('unsigned');
+  const [markerView, setMarkerView] = useState<MarkerView>('all');
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const allPubs = useMemo(() => (pubsData as Venue[]), []);
+  const filteredPubs = useMemo(() => {
+    if (pubFilter === 'all') return allPubs;
+    if (pubFilter === 'signed') return allPubs.filter((pub) => pub.signedUp);
+    return allPubs.filter((pub) => !pub.signedUp);
+  }, [allPubs, pubFilter]);
+  const signedPubCount = useMemo(() => allPubs.filter((pub) => pub.signedUp).length, [allPubs]);
+
+  const pubsById = useMemo(() => {
+    const map = new Map<string, Venue>();
+    filteredPubs.forEach((pub) => {
+      map.set(pub.nfcTagId, pub);
+    });
+    return map;
+  }, [filteredPubs]);
 
   const text = useMemo(() => {
     if (language === 'ga') {
       return {
-        tabs: {
-          cafes: 'Caifeanna',
-          pubs: 'Tithe Tabhairne',
-          culture: 'Pleanaileai Cultuir',
-        },
-        headers: {
-          cafes: `Cafeanna i mBaile Atha Cliath: ${shopsData.length}`,
-          pubs: `Tithe tabhairne i nGaillimh: ${pubsData.length}`,
-          culture: `Aiteanna cultuir: ${cultureFeatures.length}`,
-        },
-        mapTitle: 'Learscail Aontaithe',
+        header: `Tithe tabhairne + cultuir: ${filteredPubs.length}/${allPubs.length} tabhairne, ${cultureFeatures.length} ait`,
+        mapTitle: 'Learscail Chultuir agus Tithe Tabhairne',
         tapToEarn: 'Tapail NFC chun CraicCoins a thuilleamh',
         tapLoading: 'Tapail ag bailiu...',
         tapDone: 'CraicCoins bronnta!',
@@ -198,12 +333,28 @@ export default function MapPage() {
         checkin: 'Seiceail isteach',
         checkinDone: 'Seicealadh isteach',
         checkinError: 'Theip ar an tseiceail isteach',
-        viewMenu: 'Ordaigh as Gaeilge',
         speakPhrase: 'Eist leis an bhfraisa',
         events: 'Imeachtai',
         noEvents: 'Nior luchtaigh imeachtai don tabhairne seo.',
         claimCulture: 'Eileamh +5 CraicCoins',
-        practice: 'Cleachtadh frasa',
+        practice: `Cleachtadh frasa (${PRACTICE_SECONDS}s)`,
+        stopPractice: 'Stad agus Scorail',
+        routeTitle: 'Plean Bealaigh Tithe Tabhairne',
+        routeFrom: 'Ait tosaithe',
+        routeTo: 'Ait ceann scribe',
+        routePlan: 'Pleanail bealach',
+        routeClear: 'Glan bealach',
+        routeNearby: 'TabhairnI gar don bhealach',
+        searchTitle: 'Cuardaigh Ait',
+        searchPlaceholder: 'Cuardaigh tabhairne no ait...',
+        searchNoResults: 'Nior aimsiodh aon toradh',
+        filterAll: 'Uile',
+        filterSigned: 'Sinithe',
+        filterUnsigned: 'Gan Siniu',
+        showAllMarkers: 'Uile',
+        showPubsOnly: 'Tithe',
+        showPlacesOnly: 'Aiteanna',
+        signedSummary: `Sinithe: ${signedPubCount}`,
         close: 'Dun',
         website: 'Suibheas',
         phone: 'Fón',
@@ -211,17 +362,8 @@ export default function MapPage() {
     }
 
     return {
-      tabs: {
-        cafes: 'Cafes',
-        pubs: 'Pubs',
-        culture: 'Culture',
-      },
-      headers: {
-        cafes: `Cafes in Dublin: ${shopsData.length}`,
-        pubs: `Pubs in Galway: ${pubsData.length}`,
-        culture: `Cultural spots: ${cultureFeatures.length}`,
-      },
-      mapTitle: 'Unified Map',
+      header: `Pubs + culture: ${filteredPubs.length}/${allPubs.length} pubs, ${cultureFeatures.length} spots`,
+      mapTitle: 'Culture and Pubs Map',
       tapToEarn: 'Tap NFC to earn CraicCoins',
       tapLoading: 'Processing tap...',
       tapDone: 'CraicCoins awarded!',
@@ -229,25 +371,33 @@ export default function MapPage() {
       checkin: 'Check in',
       checkinDone: 'Checked in',
       checkinError: 'Check-in failed',
-      viewMenu: 'Order in Irish',
       speakPhrase: 'Hear phrase',
       events: 'Events',
       noEvents: 'No pub events loaded for this location.',
       claimCulture: 'Claim +5 CraicCoins',
-      practice: 'Practice phrase',
+      practice: `Practice phrase (${PRACTICE_SECONDS}s)`,
+      stopPractice: 'Stop and score',
+      routeTitle: 'Pub Route Planner',
+      routeFrom: 'Start pub',
+      routeTo: 'End pub',
+      routePlan: 'Plan route',
+      routeClear: 'Clear route',
+      routeNearby: 'Pubs near this route',
+      searchTitle: 'Find A Place',
+      searchPlaceholder: 'Search pub or place...',
+      searchNoResults: 'No places found',
+      filterAll: 'All',
+      filterSigned: 'Signed up',
+      filterUnsigned: 'Not signed up',
+      showAllMarkers: 'Both',
+      showPubsOnly: 'Pubs',
+      showPlacesOnly: 'Places',
+      signedSummary: `Signed up: ${signedPubCount}`,
       close: 'Close',
       website: 'Website',
       phone: 'Phone',
     };
-  }, [language, cultureFeatures.length]);
-
-  useEffect(() => {
-    if (searchParams.get('mode') !== mode) {
-      const next = new URLSearchParams(searchParams);
-      next.set('mode', mode);
-      setSearchParams(next, { replace: true });
-    }
-  }, [mode, searchParams, setSearchParams]);
+  }, [language, cultureFeatures.length, allPubs.length, filteredPubs.length, signedPubCount]);
 
   useEffect(() => {
     fetch('/ireland_culture.geojson')
@@ -255,6 +405,19 @@ export default function MapPage() {
       .then((data: CultureGeoJSON) => setCultureFeatures(data.features ?? []))
       .catch(() => setCultureFeatures([]));
   }, []);
+
+  useEffect(() => {
+    fetch('/seanfhocail_50.csv')
+      .then((response) => response.text())
+      .then((csvText) => setSeanfhocail(parseSeanfhocailCsv(csvText)))
+      .catch(() => setSeanfhocail([]));
+  }, []);
+
+  const selectedSeanfhocal = useMemo(() => {
+    if (!selectedCulture || seanfhocail.length === 0) return null;
+    const index = hashText(selectedCulture.properties.name) % seanfhocail.length;
+    return seanfhocail[index];
+  }, [selectedCulture, seanfhocail]);
 
   useEffect(() => {
     if (!navigator.geolocation) return;
@@ -275,8 +438,8 @@ export default function MapPage() {
     if (!mapContainerRef.current || mapRef.current) return;
 
     const map = L.map(mapContainerRef.current, {
-      center: CENTERS[mode],
-      zoom: mode === 'culture' ? 7 : 14,
+      center: CENTERS.culture,
+      zoom: 7,
       zoomControl: false,
       attributionControl: true,
       inertia: true,
@@ -305,7 +468,7 @@ export default function MapPage() {
       map.remove();
       mapRef.current = null;
     };
-  }, [mode]);
+  }, []);
 
   const cultureNear = useMemo(() => {
     if (!selectedCulture || !userPos) return false;
@@ -317,105 +480,110 @@ export default function MapPage() {
     const map = mapRef.current;
     if (!map) return;
 
+    const bounds = map.getBounds().pad(0.22);
+    const zoom = map.getZoom();
+    const center = map.getCenter();
+
+    const pubMarkerSize = zoom <= 8 ? 20 : zoom <= 10 ? 26 : 32;
+    const placeDotRadius = zoom <= 6 ? 2 : zoom <= 8 ? 2.5 : zoom <= 10 ? 3 : 3.8;
+    const pubEmojiSize = zoom <= 6 ? 11 : zoom <= 8 ? 12 : 14;
+
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
 
-    setSelectedVenue(null);
-    setSelectedCulture(null);
-    setRedeemState('idle');
-    setCheckinState('idle');
-
-    if (mode === 'cafes' || mode === 'pubs') {
-      const entries: Venue[] = mode === 'cafes' ? (shopsData as Venue[]) : (pubsData as Venue[]);
-      const isCafe = mode === 'cafes';
-
-      const icon = L.divIcon({
-        html: `<div style="
-          background:${isCafe ? Colors.primary : '#7B2D00'};
-          border:2px solid ${isCafe ? Colors.accent : '#D4722A'};
-          border-radius:50%;
-          width:38px;
-          height:38px;
-          display:flex;
-          align-items:center;
-          justify-content:center;
-          font-size:18px;
-          box-shadow:0 2px 12px ${isCafe ? 'rgba(26,94,60,0.45)' : 'rgba(123,45,0,0.45)'};
-        ">${isCafe ? '☕' : '🍺'}</div>`,
-        className: '',
-        iconSize: [38, 38],
-        iconAnchor: [19, 19],
-      });
-
-      entries.forEach((entry) => {
-        const marker = L.marker([entry.latitude, entry.longitude], { icon }).addTo(map);
-        marker.on('click', () => {
-          setSelectedVenue(entry);
-          map.flyTo([entry.latitude - 0.002, entry.longitude], 15, { duration: 0.45 });
-        });
-        markersRef.current.push(marker);
-      });
-
-      map.flyTo(CENTERS[mode], 14, { duration: 0.6 });
-      return;
-    }
-
-    const icon = L.divIcon({
+    const pubIcon = L.divIcon({
       html: `<div style="
-        background:${Colors.primary};
-        border:2px solid ${Colors.accent};
+        background:#7B2D00;
+        border:2px solid #D4722A;
         border-radius:50%;
-        width:34px;
-        height:34px;
+        width:${pubMarkerSize}px;
+        height:${pubMarkerSize}px;
         display:flex;
         align-items:center;
         justify-content:center;
-        font-size:16px;
-      ">☘️</div>`,
+        font-size:${pubEmojiSize}px;
+        box-shadow:0 2px 12px rgba(123,45,0,0.45);
+      ">🍺</div>`,
       className: '',
-      iconSize: [34, 34],
-      iconAnchor: [17, 17],
+      iconSize: [pubMarkerSize, pubMarkerSize],
+      iconAnchor: [pubMarkerSize / 2, pubMarkerSize / 2],
     });
 
-    cultureFeatures.forEach((feature) => {
-      const [lng, lat] = feature.geometry.coordinates;
-      const visited = visitedCulture.includes(feature.properties.name);
-      const cultureIcon = visited
-        ? L.divIcon({
-            html: `<div style="
-              background:${Colors.success};
-              border:2px solid #fff;
-              border-radius:50%;
-              width:34px;
-              height:34px;
-              display:flex;
-              align-items:center;
-              justify-content:center;
-              font-size:15px;
-            ">✅</div>`,
-            className: '',
-            iconSize: [34, 34],
-            iconAnchor: [17, 17],
-          })
-        : icon;
+    const pubsVisibleAtZoom = zoom >= 10;
 
-      const marker = L.marker([lat, lng], { icon: cultureIcon }).addTo(map);
-      marker.on('click', () => {
-        setSelectedCulture(feature);
-        map.flyTo([lat - 0.004, lng], 11, { duration: 0.45 });
+    if (markerView !== 'places' && pubsVisibleAtZoom) {
+      const pubsInView = filteredPubs.filter((pub) => bounds.contains([pub.latitude, pub.longitude]));
+      const maxPubs = zoom <= 10 ? 160 : zoom <= 12 ? 320 : 560;
+      const pubsToRender = capByDistanceToCenter(
+        pubsInView,
+        maxPubs,
+        center.lat,
+        center.lng,
+        (pub) => [pub.latitude, pub.longitude]
+      );
+
+      pubsToRender.forEach((pub) => {
+        const marker = L.marker([pub.latitude, pub.longitude], { icon: pubIcon }).addTo(map);
+        marker.on('click', (e: L.LeafletMouseEvent) => {
+          L.DomEvent.stopPropagation(e);
+          setSelectedVenue(pub);
+          setSelectedCulture(null);
+          map.flyTo([pub.latitude - 0.002, pub.longitude], 14, { duration: 0.45 });
+        });
+        markersRef.current.push(marker);
       });
-      markersRef.current.push(marker);
-    });
+    }
 
-    map.flyTo(CENTERS.culture, 7, { duration: 0.6 });
-  }, [cultureFeatures, mode, visitedCulture]);
+    if (markerView !== 'pubs') {
+      const cultureInView = cultureFeatures.filter((feature) => {
+        const [lng, lat] = feature.geometry.coordinates;
+        return bounds.contains([lat, lng]);
+      });
+
+      // Always show places in view as tiny dots so zoomed-out map feels calm but complete.
+      cultureInView.forEach((feature) => {
+        const [lng, lat] = feature.geometry.coordinates;
+        const visited = visitedCulture.includes(feature.properties.name);
+        const marker = L.circleMarker([lat, lng], {
+          radius: placeDotRadius,
+          color: visited ? '#b7f0c5' : '#2ea043',
+          fillColor: visited ? '#57d17b' : '#2ea043',
+          fillOpacity: visited ? 0.9 : 0.8,
+          weight: 1,
+        }).addTo(map);
+        marker.on('click', (e: L.LeafletMouseEvent) => {
+          L.DomEvent.stopPropagation(e);
+          setSelectedCulture(feature);
+          setSelectedVenue(null);
+          if (map.getZoom() < 11) {
+            map.flyTo([lat - 0.004, lng], 11, { duration: 0.45 });
+          } else {
+            map.flyTo([lat - 0.004, lng], map.getZoom(), { duration: 0.35 });
+          }
+        });
+        markersRef.current.push(marker);
+      });
+    }
+  }, [filteredPubs, cultureFeatures, visitedCulture, markerView]);
 
   useEffect(() => {
     placeMarkers();
   }, [placeMarkers]);
 
   useEffect(() => {
-    if (!selectedVenue || mode !== 'pubs') {
+    const map = mapRef.current;
+    if (!map) return;
+    const refresh = () => placeMarkers();
+    map.on('moveend', refresh);
+    map.on('zoomend', refresh);
+    return () => {
+      map.off('moveend', refresh);
+      map.off('zoomend', refresh);
+    };
+  }, [placeMarkers]);
+
+  useEffect(() => {
+    if (!selectedVenue) {
       setPubPhrase('Pionta Guinness, le do thoil.');
       setPubEvents([]);
       return;
@@ -432,7 +600,7 @@ export default function MapPage() {
         setPubEvents([]);
       })
       .finally(() => setLoadingPubExtras(false));
-  }, [mode, selectedVenue]);
+  }, [selectedVenue]);
 
   const handlePubRedeem = async (pubID: string) => {
     setRedeemState('loading');
@@ -469,8 +637,161 @@ export default function MapPage() {
     window.setTimeout(() => setCoinToast({ open: false, label: '' }), 1800);
   };
 
+  const clearRoutePlan = () => {
+    routeLineRef.current?.remove();
+    routeLineRef.current = null;
+    routePinRef.current.forEach((marker) => marker.remove());
+    routePinRef.current = [];
+    setRouteSummary('');
+    setRoutePubs([]);
+  };
+
+  const placeSearchResults = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return [] as PlaceSearchResult[];
+
+    const pubResults: PlaceSearchResult[] = filteredPubs.map((pub) => ({
+      id: `pub-${pub.nfcTagId}`,
+      kind: 'pub',
+      name: pub.name,
+      subtitle: pub.address || '',
+      lat: pub.latitude,
+      lon: pub.longitude,
+      pub,
+    }));
+
+    const cultureResults: PlaceSearchResult[] = cultureFeatures.map((feature) => {
+      const [lon, lat] = feature.geometry.coordinates;
+      const county = feature.properties.county || '';
+      return {
+        id: `culture-${feature.properties.name}`,
+        kind: 'culture',
+        name: feature.properties.name,
+        subtitle: county,
+        lat,
+        lon,
+        culture: feature,
+      };
+    });
+
+    return [...pubResults, ...cultureResults]
+      .filter((item) => {
+        const haystack = `${item.name} ${item.subtitle}`.toLowerCase();
+        return haystack.includes(query);
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 16);
+  }, [searchQuery, filteredPubs, cultureFeatures]);
+
+  const handleSelectPlaceSearchResult = (result: PlaceSearchResult) => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    if (result.kind === 'pub' && result.pub) {
+      setSelectedVenue(result.pub);
+      setSelectedCulture(null);
+      map.flyTo([result.lat - 0.002, result.lon], 14, { duration: 0.45 });
+    } else if (result.kind === 'culture' && result.culture) {
+      setSelectedCulture(result.culture);
+      setSelectedVenue(null);
+      map.flyTo([result.lat - 0.004, result.lon], 11, { duration: 0.45 });
+    }
+
+    setSearchOpen(false);
+    setSearchQuery('');
+  };
+
+  const handlePlanRoute = async () => {
+    if (!routeFrom || !routeTo || routeFrom === routeTo) return;
+    const from = pubsById.get(routeFrom);
+    const to = pubsById.get(routeTo);
+    const map = mapRef.current;
+    if (!from || !to || !map) return;
+
+    setPlanningRoute(true);
+    try {
+      const url = `https://router.project-osrm.org/route/v1/driving/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=full&geometries=geojson`;
+      const response = await fetch(url);
+      const data = await response.json();
+      const route = data?.routes?.[0];
+      if (!route?.geometry?.coordinates) throw new Error('route-failed');
+
+      const points: [number, number][] = route.geometry.coordinates.map((c: [number, number]) => [c[1], c[0]]);
+      clearRoutePlan();
+
+      routeLineRef.current = L.polyline(points, {
+        color: '#e67e22',
+        weight: 5,
+        opacity: 0.8,
+        dashArray: '8 5',
+      }).addTo(map);
+
+      const fromPin = L.marker([from.latitude, from.longitude], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div style="background:#169B62;color:#fff;border:2px solid #fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:800">A</div>',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        }),
+      }).addTo(map);
+
+      const toPin = L.marker([to.latitude, to.longitude], {
+        icon: L.divIcon({
+          className: '',
+          html: '<div style="background:#7B2D00;color:#fff;border:2px solid #fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:800">B</div>',
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        }),
+      }).addTo(map);
+      routePinRef.current = [fromPin, toPin];
+
+      const distanceKm = Math.round((route.distance || 0) / 1000);
+      const durationMin = Math.round((route.duration || 0) / 60);
+      setRouteSummary(`${distanceKm} km · ${durationMin} min`);
+
+      const nearby = filteredPubs
+        .map((pub) => ({
+          pub,
+          distanceKm: distanceToPolylineKm(pub.latitude, pub.longitude, points),
+        }))
+        .filter((item) => item.distanceKm <= 5)
+        .sort((a, b) => a.distanceKm - b.distanceKm)
+        .slice(0, 8);
+      setRoutePubs(nearby);
+
+      map.fitBounds(routeLineRef.current.getBounds(), { padding: [40, 40] });
+    } catch {
+      clearRoutePlan();
+      setRouteSummary(language === 'ga' ? 'Theip ar phleanail an bhealaigh' : 'Could not plan route');
+    } finally {
+      setPlanningRoute(false);
+    }
+  };
+
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
+      <style>{`
+        .leaflet-right .leaflet-control-zoom {
+          border: none !important;
+          box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35) !important;
+          border-radius: 12px !important;
+          overflow: hidden;
+        }
+        .leaflet-control-zoom a {
+          width: 36px !important;
+          height: 36px !important;
+          line-height: 36px !important;
+          font-size: 20px !important;
+          font-weight: 700 !important;
+          color: #f0f6fc !important;
+          background: rgba(13, 17, 23, 0.95) !important;
+          border: 1px solid #30363d !important;
+        }
+        .leaflet-control-zoom a:hover {
+          background: #7b2d00 !important;
+          color: #ffffff !important;
+        }
+      `}</style>
       <div className="irish-bar" style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 1000 }} />
       <div ref={mapContainerRef} style={{ position: 'absolute', inset: 0 }} />
 
@@ -496,52 +817,302 @@ export default function MapPage() {
         position: 'absolute',
         top: 16,
         left: 16,
-        right: 16,
+        right: 84,
         zIndex: 1000,
         backgroundColor: 'rgba(13, 17, 23, 0.95)',
         borderRadius: 16,
         border: `1px solid ${Colors.border}`,
-        padding: '12px 16px',
+        padding: '10px 14px',
         backdropFilter: 'blur(8px)',
       }}>
         <div style={{ color: Colors.text, fontSize: 18, fontWeight: 800, textAlign: 'center' }}>
-          {mode === 'cafes' ? '☕' : mode === 'pubs' ? '🍺' : '☘️'} {text.mapTitle}
+          🍺☘️ {text.mapTitle}
         </div>
         <div style={{ color: Colors.accent, fontSize: 12, fontWeight: 600, textAlign: 'center', marginTop: 2 }}>
-          {mode === 'cafes' ? text.headers.cafes : mode === 'pubs' ? text.headers.pubs : text.headers.culture}
+          {text.header}
         </div>
-
-        <div style={{
-          display: 'flex',
-          gap: 4,
-          marginTop: 10,
-          backgroundColor: Colors.card,
-          borderRadius: 20,
-          padding: 3,
-        }}>
-          {(['cafes', 'pubs', 'culture'] as Mode[]).map((item) => (
+        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
+          {([
+            ['all', text.filterAll],
+            ['signed', text.filterSigned],
+            ['unsigned', text.filterUnsigned],
+          ] as Array<[PubFilter, string]>).map(([value, label]) => (
             <button
-              key={item}
-              onClick={() => setMode(item)}
+              key={value}
+              onClick={() => setPubFilter(value)}
               style={{
                 flex: 1,
-                border: 'none',
-                borderRadius: 17,
-                padding: '6px 0',
+                borderRadius: 999,
+                border: `1px solid ${pubFilter === value ? '#D4722A' : Colors.border}`,
+                background: pubFilter === value ? '#7B2D00' : Colors.card,
+                color: Colors.text,
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '5px 6px',
                 cursor: 'pointer',
-                fontSize: 12,
-                fontWeight: 800,
-                color: mode === item ? Colors.text : Colors.textMuted,
-                backgroundColor: mode === item
-                  ? (item === 'cafes' ? Colors.primary : item === 'pubs' ? '#7B2D00' : '#2B4D8A')
-                  : 'transparent',
               }}
             >
-              {item === 'cafes' ? text.tabs.cafes : item === 'pubs' ? text.tabs.pubs : text.tabs.culture}
+              {label}
             </button>
           ))}
         </div>
+        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+          {([
+            ['all', text.showAllMarkers],
+            ['pubs', text.showPubsOnly],
+            ['places', text.showPlacesOnly],
+          ] as Array<[MarkerView, string]>).map(([value, label]) => (
+            <button
+              key={value}
+              onClick={() => setMarkerView(value)}
+              style={{
+                flex: 1,
+                borderRadius: 999,
+                border: `1px solid ${markerView === value ? Colors.accent : Colors.border}`,
+                background: markerView === value ? Colors.primary : Colors.card,
+                color: Colors.text,
+                fontSize: 11,
+                fontWeight: 700,
+                padding: '5px 6px',
+                cursor: 'pointer',
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+        <div style={{ color: Colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 4 }}>
+          {text.signedSummary}
+        </div>
       </div>
+
+      <button
+        onClick={() => setPlannerOpen((v) => !v)}
+        style={{
+          position: 'absolute',
+          top: 16,
+          right: 16,
+          zIndex: 1100,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          border: '1px solid #D4722A',
+          background: plannerOpen ? '#7B2D00' : 'rgba(13, 17, 23, 0.96)',
+          color: '#fff',
+          fontWeight: 800,
+          cursor: 'pointer',
+          boxShadow: '0 8px 18px rgba(0,0,0,0.35)',
+        }}
+        title={text.routeTitle}
+      >
+        🧭
+      </button>
+
+      <button
+        onClick={() => setSearchOpen((v) => !v)}
+        style={{
+          position: 'absolute',
+          left: 16,
+          bottom: 16,
+          zIndex: 1200,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          border: '1px solid #D4722A',
+          background: searchOpen ? '#7B2D00' : 'rgba(13, 17, 23, 0.96)',
+          color: '#fff',
+          fontWeight: 800,
+          cursor: 'pointer',
+          boxShadow: '0 8px 18px rgba(0,0,0,0.35)',
+          fontSize: 20,
+        }}
+        title={text.searchTitle}
+      >
+        🔍
+      </button>
+
+      {searchOpen && (
+        <div style={{
+          position: 'absolute',
+          left: 16,
+          bottom: 84,
+          zIndex: 1200,
+          width: 'min(420px, calc(100vw - 24px))',
+          backgroundColor: 'rgba(13, 17, 23, 0.97)',
+          borderRadius: 14,
+          border: `1px solid ${Colors.border}`,
+          padding: 10,
+        }}>
+          <div style={{ color: Colors.accent, fontSize: 11, fontWeight: 800, marginBottom: 6 }}>{text.searchTitle}</div>
+          <input
+            autoFocus
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={text.searchPlaceholder}
+            style={{
+              width: '100%',
+              background: Colors.surface,
+              color: Colors.text,
+              border: `1px solid ${Colors.border}`,
+              borderRadius: 8,
+              padding: '8px 10px',
+              fontSize: 12,
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+
+          <div style={{ marginTop: 8, display: 'grid', gap: 5, maxHeight: 220, overflowY: 'auto' }}>
+            {searchQuery.trim().length > 0 && placeSearchResults.length === 0 && (
+              <div style={{ color: Colors.textMuted, fontSize: 12 }}>{text.searchNoResults}</div>
+            )}
+
+            {placeSearchResults.map((result) => (
+              <button
+                key={result.id}
+                onClick={() => handleSelectPlaceSearchResult(result)}
+                style={{
+                  textAlign: 'left',
+                  background: Colors.surface,
+                  border: `1px solid ${Colors.border}`,
+                  color: Colors.text,
+                  borderRadius: 8,
+                  padding: '7px 8px',
+                  fontSize: 12,
+                  cursor: 'pointer',
+                }}
+              >
+                <div style={{ fontWeight: 700 }}>{result.kind === 'pub' ? '🍺' : '☘️'} {result.name}</div>
+                {!!result.subtitle && <div style={{ color: Colors.textSecondary, fontSize: 11, marginTop: 2 }}>{result.subtitle}</div>}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {plannerOpen && (
+        <div style={{
+          position: 'absolute',
+          top: 84,
+          right: 16,
+          zIndex: 1100,
+          width: 'min(420px, calc(100vw - 24px))',
+          backgroundColor: 'rgba(13, 17, 23, 0.97)',
+          borderRadius: 14,
+          border: `1px solid ${Colors.border}`,
+          padding: 10,
+        }}>
+          <div style={{ marginTop: 0, backgroundColor: Colors.card, borderRadius: 14, padding: 8 }}>
+          <div style={{ color: Colors.accent, fontSize: 11, fontWeight: 800, marginBottom: 6 }}>{text.routeTitle}</div>
+          <div style={{ display: 'grid', gap: 6 }}>
+            <select
+              value={routeFrom}
+              onChange={(e) => setRouteFrom(e.target.value)}
+              style={{
+                width: '100%',
+                background: Colors.surface,
+                color: Colors.text,
+                border: `1px solid ${Colors.border}`,
+                borderRadius: 8,
+                padding: '7px 8px',
+                fontSize: 12,
+              }}
+            >
+              <option value="">{text.routeFrom}</option>
+              {filteredPubs.map((pub) => (
+                <option key={`from-${pub.nfcTagId}`} value={pub.nfcTagId}>{pub.name}</option>
+              ))}
+            </select>
+            <select
+              value={routeTo}
+              onChange={(e) => setRouteTo(e.target.value)}
+              style={{
+                width: '100%',
+                background: Colors.surface,
+                color: Colors.text,
+                border: `1px solid ${Colors.border}`,
+                borderRadius: 8,
+                padding: '7px 8px',
+                fontSize: 12,
+              }}
+            >
+              <option value="">{text.routeTo}</option>
+              {filteredPubs.map((pub) => (
+                <option key={`to-${pub.nfcTagId}`} value={pub.nfcTagId}>{pub.name}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
+            <button
+              onClick={() => void handlePlanRoute()}
+              disabled={planningRoute || !routeFrom || !routeTo || routeFrom === routeTo}
+              style={{
+                flex: 1,
+                background: '#7B2D00',
+                border: '1px solid #D4722A',
+                color: Colors.text,
+                borderRadius: 9,
+                padding: '8px 0',
+                fontWeight: 700,
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              {planningRoute ? '...' : text.routePlan}
+            </button>
+            <button
+              onClick={clearRoutePlan}
+              style={{
+                background: Colors.surface,
+                border: `1px solid ${Colors.border}`,
+                color: Colors.textSecondary,
+                borderRadius: 9,
+                padding: '8px 10px',
+                fontWeight: 700,
+                fontSize: 12,
+                cursor: 'pointer',
+              }}
+            >
+              {text.routeClear}
+            </button>
+          </div>
+          {!!routeSummary && (
+            <div style={{ marginTop: 6, color: Colors.textSecondary, fontSize: 12, fontWeight: 700 }}>
+              {routeSummary}
+            </div>
+          )}
+          {routePubs.length > 0 && (
+            <div style={{ marginTop: 6 }}>
+              <div style={{ color: Colors.accent, fontSize: 11, fontWeight: 800, marginBottom: 4 }}>{text.routeNearby}</div>
+              <div style={{ display: 'grid', gap: 4, maxHeight: 88, overflowY: 'auto' }}>
+                {routePubs.map((item) => (
+                  <button
+                    key={`route-pub-${item.pub.nfcTagId}`}
+                    onClick={() => {
+                      setSelectedVenue(item.pub);
+                      mapRef.current?.flyTo([item.pub.latitude, item.pub.longitude], 14, { duration: 0.45 });
+                      setPlannerOpen(false);
+                    }}
+                    style={{
+                      textAlign: 'left',
+                      background: Colors.surface,
+                      border: `1px solid ${Colors.border}`,
+                      color: Colors.text,
+                      borderRadius: 8,
+                      padding: '6px 8px',
+                      fontSize: 11,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    {item.pub.name} · {item.distanceKm.toFixed(1)}km
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+      )}
 
       {selectedVenue && (
         <div style={{
@@ -603,27 +1174,7 @@ export default function MapPage() {
             )}
           </div>
 
-          {mode === 'cafes' && (
-            <button
-              onClick={() => navigate(`/shop/${selectedVenue.id}`)}
-              style={{
-                marginTop: 12,
-                width: '100%',
-                border: `1px solid ${Colors.primaryLight}`,
-                background: Colors.primary,
-                color: Colors.text,
-                borderRadius: 12,
-                padding: 12,
-                cursor: 'pointer',
-                fontWeight: 800,
-              }}
-            >
-              {text.viewMenu} →
-            </button>
-          )}
-
-          {mode === 'pubs' && (
-            <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
+          <div style={{ marginTop: 12, display: 'grid', gap: 8 }}>
               <button
                 onClick={() => void handlePubRedeem(selectedVenue.nfcTagId)}
                 disabled={redeemState === 'loading'}
@@ -702,7 +1253,6 @@ export default function MapPage() {
                 )}
               </div>
             </div>
-          )}
         </div>
       )}
 
@@ -759,18 +1309,18 @@ export default function MapPage() {
             </p>
           )}
 
-          {!!selectedCulture.properties.local_phrase?.phrase && (
+          {!!selectedSeanfhocal && (
             <div style={{ marginTop: 10, background: Colors.background, borderRadius: 10, border: `1px solid ${Colors.border}`, padding: 10 }}>
-              <div style={{ color: Colors.irish.green, fontWeight: 700 }}>{selectedCulture.properties.local_phrase.phrase}</div>
-              <div style={{ color: Colors.textMuted, fontSize: 12, fontStyle: 'italic', marginTop: 2 }}>
-                /{selectedCulture.properties.local_phrase.phonetic}/
+              <div style={{ color: Colors.accent, fontSize: 11, fontWeight: 700, marginBottom: 4 }}>
+                {language === 'ga' ? 'Seanfhocal an Lae' : 'Seanfhocal'}
               </div>
+              <div style={{ color: Colors.irish.green, fontWeight: 700 }}>{selectedSeanfhocal.irish}</div>
               <div style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 4 }}>
-                {selectedCulture.properties.local_phrase.meaning}
+                {selectedSeanfhocal.english}
               </div>
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button
-                  onClick={() => void speakIrish(selectedCulture.properties.local_phrase?.phrase || '')}
+                  onClick={() => void speakIrish(selectedSeanfhocal.irish)}
                   style={{
                     flex: 1,
                     background: Colors.primary,
@@ -787,16 +1337,22 @@ export default function MapPage() {
                 </button>
                 <button
                   onClick={async () => {
-                    if (recording) return;
+                    if (recording) {
+                      stopRecordingRef.current?.();
+                      return;
+                    }
                     setRecording(true);
                     setRecognition(null);
                     try {
-                      const spoken = await recordAndRecognise();
-                      const target = selectedCulture.properties.local_phrase?.phrase || '';
+                      const spoken = await recordAndRecognise((stop) => {
+                        stopRecordingRef.current = stop;
+                      });
+                      const target = selectedSeanfhocal.irish;
                       setRecognition({ text: spoken, score: similarityScore(spoken, target) });
                     } catch {
                       setRecognition({ text: language === 'ga' ? 'Theip ar aithint gutha' : 'Speech recognition failed', score: 0 });
                     }
+                    stopRecordingRef.current = null;
                     setRecording(false);
                   }}
                   style={{
@@ -811,7 +1367,7 @@ export default function MapPage() {
                     fontSize: 12,
                   }}
                 >
-                  🎤 {recording ? '...' : text.practice}
+                  🎤 {recording ? text.stopPractice : text.practice}
                 </button>
               </div>
             </div>

@@ -8,6 +8,7 @@ Usage:
   python fetch_pubs.py                  # Galway pubs (default)
   python fetch_pubs.py --city dublin
   python fetch_pubs.py --city cork
+    python fetch_pubs.py --city major     # major Irish cities merged
   python fetch_pubs.py --area ireland   # all Ireland (slow, ~3 000 results)
 """
 
@@ -24,7 +25,10 @@ import requests
 # ---------------------------------------------------------------------------
 # Overpass API endpoint (public, no key required)
 # ---------------------------------------------------------------------------
-OVERPASS_URL = "https://overpass-api.de/api/interpreter"
+OVERPASS_URLS = [
+    "https://overpass-api.de/api/interpreter",
+    "https://overpass.kumi.systems/api/interpreter",
+]
 
 # Bounding boxes [south, west, north, east]
 AREAS = {
@@ -32,8 +36,25 @@ AREAS = {
     "dublin":  (53.29, -6.42, 53.42, -6.09),
     "cork":    (51.87, -8.57, 51.93, -8.42),
     "limerick": (52.64, -8.68, 52.68, -8.59),
+    "waterford": (52.22, -7.18, 52.30, -7.05),
+    "belfast": (54.54, -6.03, 54.66, -5.85),
+    "kilkenny": (52.62, -7.30, 52.69, -7.20),
+    "sligo": (54.24, -8.52, 54.30, -8.43),
+    "tralee": (52.23, -9.76, 52.30, -9.66),
     "ireland": (51.40, -10.60, 55.50, -5.40),
 }
+
+MAJOR_CITIES = [
+    "dublin",
+    "cork",
+    "galway",
+    "limerick",
+    "waterford",
+    "belfast",
+    "kilkenny",
+    "sligo",
+    "tralee",
+]
 
 HEADERS = {
     "User-Agent": "cupan-caife-pub-fetcher/1.0 (https://github.com/wheres-da-craic)"
@@ -58,12 +79,19 @@ out center tags;
 
 def fetch_pubs(bbox: tuple[float, float, float, float]) -> list[dict]:
     query = build_query(bbox)
-    print("Querying Overpass API …", flush=True)
-    resp = requests.post(OVERPASS_URL, data={"data": query}, headers=HEADERS, timeout=90)
-    resp.raise_for_status()
-    elements = resp.json().get("elements", [])
-    print(f"  → {len(elements)} raw elements returned")
-    return elements
+    for endpoint in OVERPASS_URLS:
+        for attempt in range(1, 4):
+            try:
+                print(f"Querying Overpass API ({endpoint}, attempt {attempt}) …", flush=True)
+                resp = requests.post(endpoint, data={"data": query}, headers=HEADERS, timeout=120)
+                resp.raise_for_status()
+                elements = resp.json().get("elements", [])
+                print(f"  → {len(elements)} raw elements returned")
+                return elements
+            except Exception as exc:
+                print(f"  ! Overpass error: {exc}")
+                time.sleep(1.5 * attempt)
+    raise RuntimeError("All Overpass endpoints failed")
 
 
 def slugify(text: str) -> str:
@@ -126,6 +154,22 @@ def parse_elements(elements: list[dict]) -> list[dict]:
     return pubs
 
 
+def merge_and_deduplicate_pubs(pubs: list[dict]) -> list[dict]:
+    seen = set()
+    merged = []
+    for pub in pubs:
+        key = (
+            pub["name"].strip().lower(),
+            round(pub["latitude"], 4),
+            round(pub["longitude"], 4),
+        )
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(pub)
+    return merged
+
+
 def to_app_json(pubs: list[dict], start_id: int = 100) -> list[dict]:
     """Convert to the same schema as shops.json for the React app."""
     result = []
@@ -167,19 +211,34 @@ def main() -> None:
     parser.add_argument(
         "--city",
         default="galway",
-        choices=list(AREAS.keys()),
+        choices=list(AREAS.keys()) + ["major"],
         help="City / region to query (default: galway)",
     )
     args = parser.parse_args()
 
     city = args.city
-    bbox = AREAS[city]
+    pubs: list[dict] = []
 
-    elements = fetch_pubs(bbox)
-    time.sleep(1)  # be polite to the public Overpass instance
-
-    pubs = parse_elements(elements)
-    print(f"  → {len(pubs)} named pubs extracted")
+    if city == "major":
+        print("Fetching pubs across major Irish cities…")
+        for city_name in MAJOR_CITIES:
+            print(f"\n[{city_name}]", flush=True)
+            try:
+                elements = fetch_pubs(AREAS[city_name])
+                city_pubs = parse_elements(elements)
+                print(f"  → {len(city_pubs)} named pubs extracted")
+                pubs.extend(city_pubs)
+            except Exception as exc:
+                print(f"  ! Skipping {city_name}: {exc}")
+            time.sleep(1)
+        pubs = merge_and_deduplicate_pubs(pubs)
+        print(f"\n  → {len(pubs)} pubs after dedup across major cities")
+    else:
+        bbox = AREAS[city]
+        elements = fetch_pubs(bbox)
+        time.sleep(1)  # be polite to the public Overpass instance
+        pubs = parse_elements(elements)
+        print(f"  → {len(pubs)} named pubs extracted")
 
     if not pubs:
         print("No pubs found — check the bounding box or try --city ireland", file=sys.stderr)

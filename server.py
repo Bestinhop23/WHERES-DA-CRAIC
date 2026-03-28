@@ -1,12 +1,15 @@
 import csv
 import json
 import os
+import math
 import sqlite3
+import time
 import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
 
+import requests
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 
@@ -19,14 +22,326 @@ INPUT_CSV = ROOT / "places_ireland.csv"
 CHECKPOINT_FILE = ROOT / "enrichment_checkpoint.json"
 EVENTS_FILE = ROOT / "events_v1.json"
 PUBS_FILE = ROOT / "cupan-caife-web" / "src" / "data" / "pubs.json"
+LUMA_DISCOVER_URL = "https://api.lu.ma/discover/get-paginated-events"
+LUMA_REFRESH_INTERVAL_SECONDS = int(os.getenv("LUMA_REFRESH_INTERVAL_SECONDS", "900"))
+LUMA_MAX_PAGES = int(os.getenv("LUMA_MAX_PAGES", "6"))
 
 DB_LOCK = threading.Lock()
 REDEEM_COOLDOWN_MINUTES = 30
 BASE_REWARD = 20
 
+LUMA_HEADERS = {
+	"User-Agent": "Mozilla/5.0",
+	"Accept": "application/json, text/plain, */*",
+	"Referer": "https://lu.ma/",
+	"Origin": "https://lu.ma",
+}
+
+IRISH_COUNTIES = {
+	"Antrim", "Armagh", "Carlow", "Cavan", "Clare", "Cork", "Derry", "Donegal",
+	"Down", "Dublin", "Fermanagh", "Galway", "Kerry", "Kildare", "Kilkenny",
+	"Laois", "Leitrim", "Limerick", "Longford", "Louth", "Mayo", "Meath",
+	"Monaghan", "Offaly", "Roscommon", "Sligo", "Tipperary", "Tyrone",
+	"Waterford", "Westmeath", "Wexford", "Wicklow",
+}
+
+COUNTY_CENTROIDS = {
+	"Dublin": (53.3498, -6.2603),
+	"Cork": (51.8985, -8.4756),
+	"Galway": (53.2707, -9.0568),
+	"Limerick": (52.6638, -8.6267),
+	"Waterford": (52.2593, -7.1101),
+	"Kerry": (52.1545, -9.5669),
+	"Tipperary": (52.4736, -8.1619),
+	"Clare": (52.9047, -8.9805),
+	"Mayo": (53.8578, -9.2972),
+	"Donegal": (54.6549, -8.1096),
+	"Sligo": (54.2697, -8.4694),
+	"Leitrim": (54.1161, -8.0785),
+	"Roscommon": (53.6279, -8.1894),
+	"Longford": (53.7278, -7.7965),
+	"Westmeath": (53.5333, -7.35),
+	"Offaly": (53.2734, -7.7783),
+	"Laois": (53.0329, -7.2990),
+	"Kildare": (53.1589, -6.9094),
+	"Wicklow": (52.9806, -6.0440),
+	"Wexford": (52.3369, -6.4633),
+	"Carlow": (52.8408, -6.9261),
+	"Kilkenny": (52.6541, -7.2448),
+	"Meath": (53.6538, -6.6873),
+	"Louth": (53.95, -6.54),
+	"Monaghan": (54.2490, -6.9680),
+	"Cavan": (53.9897, -7.3633),
+	"Fermanagh": (54.3441, -7.6343),
+	"Antrim": (54.7195, -6.2072),
+	"Armagh": (54.3503, -6.6528),
+	"Down": (54.3281, -5.7167),
+	"Tyrone": (54.5994, -7.2960),
+	"Derry": (54.9966, -7.3086),
+}
+
+EVENTS_LOCK = threading.Lock()
+EVENTS_CACHE: list[dict] = []
+EVENTS_LAST_REFRESH: Optional[str] = None
+EVENTS_LAST_ERROR: Optional[str] = None
+EVENTS_REFRESH_IN_PROGRESS = False
+
 
 def now_iso() -> str:
 	return datetime.now(timezone.utc).isoformat()
+
+
+def parse_iso_datetime(value: str) -> Optional[datetime]:
+	if not value:
+		return None
+	try:
+		return datetime.fromisoformat(value.replace("Z", "+00:00"))
+	except ValueError:
+		return None
+
+
+def parse_event_datetime(event: dict) -> Optional[datetime]:
+	date_raw = (event.get("date") or "").strip()
+	time_raw = (event.get("time") or "").strip().replace(" UTC", "")
+	if not date_raw:
+		return None
+	if not time_raw:
+		time_raw = "00:00"
+	try:
+		return datetime.fromisoformat(f"{date_raw}T{time_raw}:00+00:00")
+	except ValueError:
+		return None
+
+
+def haversine_km(lat1: float, lon1: float, lat2: float, lon2: float) -> float:
+	r = 6371.0
+	dlat = math.radians(lat2 - lat1)
+	dlon = math.radians(lon2 - lon1)
+	a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+	return r * 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
+
+
+def to_float(value) -> Optional[float]:
+	try:
+		if value is None:
+			return None
+		return float(value)
+	except (TypeError, ValueError):
+		return None
+
+
+def is_irish_focused_event(event: dict) -> bool:
+	text = " ".join([
+		str(event.get("name") or ""),
+		str(event.get("description") or ""),
+		str(event.get("host") or ""),
+		" ".join(event.get("tags") or []),
+	]).lower()
+	keywords = [
+		"gaeilge", "gaeilge", "irish language", "as gaeilge", "gaeltacht", "sean-nos", "trad",
+		"ceili", "céilí", "irish class", "learn irish", "comhra", "seisiun", "seisiún", "gael",
+	]
+	return any(k in text for k in keywords)
+
+
+def derive_county_from_text(geo: dict, address_text: str) -> str:
+	search_text = " ".join([
+		str(geo.get("city_state") or ""),
+		str(geo.get("full_address") or ""),
+		str(geo.get("city") or ""),
+		str(geo.get("region") or ""),
+		address_text,
+	]).lower()
+	for county in IRISH_COUNTIES:
+		if county.lower() in search_text:
+			return county
+	return ""
+
+
+def normalise_luma_entry(entry: dict) -> Optional[dict]:
+	event = entry.get("event", {}) or {}
+	calendar = entry.get("calendar", {}) or {}
+	hosts = entry.get("hosts", []) or []
+	geo = event.get("geo_address_info", {}) or {}
+
+	name = (event.get("name") or "").strip()
+	if not name:
+		return None
+
+	start_raw = event.get("start_at") or ""
+	start_dt = parse_iso_datetime(start_raw)
+	date_str = start_dt.strftime("%Y-%m-%d") if start_dt else ""
+	time_str = start_dt.strftime("%H:%M UTC") if start_dt else ""
+
+	venue = (geo.get("address") or geo.get("place_id") or "").strip()
+	address_parts = [
+		geo.get("full_address") or geo.get("description") or venue,
+		geo.get("city_state") or geo.get("city") or "",
+		geo.get("country_code") or "",
+	]
+	address = ", ".join([str(p).strip() for p in address_parts if p])
+	county = derive_county_from_text(geo, address)
+
+	event_url = (event.get("url") or "").strip()
+	if event_url and not event_url.startswith("http"):
+		event_url = f"https://lu.ma/{event_url}"
+
+	description = event.get("description_md") or event.get("description") or ""
+	if isinstance(description, dict):
+		description = json.dumps(description)
+
+	host_names = [h.get("name", "") for h in hosts if h.get("name")]
+	host = ", ".join(host_names) if host_names else (calendar.get("name") or "")
+
+	tags = event.get("tags", []) or []
+	if isinstance(tags, list):
+		tags = [t if isinstance(t, str) else t.get("name", "") for t in tags]
+	tags = [t for t in tags if t]
+	category = event.get("category") or ""
+	if category and category not in tags:
+		tags.insert(0, category)
+
+	lat = to_float(event.get("geo_latitude") or geo.get("latitude") or geo.get("lat"))
+	lon = to_float(event.get("geo_longitude") or geo.get("longitude") or geo.get("lon"))
+
+	return {
+		"name": name,
+		"date": date_str,
+		"time": time_str,
+		"venue": venue,
+		"address": address,
+		"county": county,
+		"url": event_url,
+		"description": str(description)[:500] if description else "",
+		"host": host,
+		"tags": tags,
+		"lat": lat,
+		"lon": lon,
+	}
+
+
+def deduplicate_events(events: list[dict]) -> list[dict]:
+	seen_urls = set()
+	seen_keys = set()
+	unique = []
+	for event in events:
+		url = (event.get("url") or "").strip()
+		key = ((event.get("name") or "").lower().strip(), event.get("date") or "")
+		if url and url in seen_urls:
+			continue
+		if key in seen_keys:
+			continue
+		if url:
+			seen_urls.add(url)
+		seen_keys.add(key)
+		unique.append(event)
+	return unique
+
+
+def load_events_from_disk() -> list[dict]:
+	if not EVENTS_FILE.exists():
+		return []
+	with open(EVENTS_FILE, "r", encoding="utf-8") as f:
+		data = json.load(f)
+	return data.get("events", [])
+
+
+def save_events_to_disk(events: list[dict]) -> None:
+	payload = {
+		"scraped_at": now_iso(),
+		"total": len(events),
+		"events": events,
+	}
+	with open(EVENTS_FILE, "w", encoding="utf-8") as f:
+		json.dump(payload, f, ensure_ascii=False, indent=2)
+
+
+def fetch_luma_events_for_ireland(max_pages: int = LUMA_MAX_PAGES) -> list[dict]:
+	lat, lon = 53.3498, -7.2604
+	cursor = None
+	entries = []
+	for _ in range(max_pages):
+		params = {
+			"pagination_limit": 100,
+			"geo_latitude": lat,
+			"geo_longitude": lon,
+			"geo_radius_km": 500,
+		}
+		if cursor:
+			params["pagination_cursor"] = cursor
+		response = requests.get(LUMA_DISCOVER_URL, params=params, headers=LUMA_HEADERS, timeout=30)
+		response.raise_for_status()
+		data = response.json()
+		entries.extend(data.get("entries", []))
+		if not data.get("has_more"):
+			break
+		cursor = data.get("next_cursor")
+		if not cursor:
+			break
+		time.sleep(0.25)
+
+	parsed = []
+	for entry in entries:
+		normalized = normalise_luma_entry(entry)
+		if not normalized:
+			continue
+		country_code = ((entry.get("event", {}).get("geo_address_info", {}) or {}).get("country_code") or "").upper()
+		if country_code and country_code not in ("IE", "GB"):
+			continue
+		parsed.append(normalized)
+
+	return deduplicate_events(parsed)
+
+
+def refresh_events_from_luma(force: bool = False) -> bool:
+	global EVENTS_LAST_REFRESH, EVENTS_LAST_ERROR, EVENTS_CACHE, EVENTS_REFRESH_IN_PROGRESS
+	with EVENTS_LOCK:
+		if EVENTS_REFRESH_IN_PROGRESS:
+			return False
+		if not force and EVENTS_LAST_REFRESH:
+			last = parse_iso_datetime(EVENTS_LAST_REFRESH)
+			if last and (datetime.now(timezone.utc) - last).total_seconds() < LUMA_REFRESH_INTERVAL_SECONDS:
+				return False
+		EVENTS_REFRESH_IN_PROGRESS = True
+
+	try:
+		luma_events = fetch_luma_events_for_ireland()
+		disk_events = load_events_from_disk()
+		merged = deduplicate_events(disk_events + luma_events)
+		merged.sort(key=lambda e: ((e.get("date") or "9999-12-31"), e.get("time") or "23:59 UTC", e.get("name") or ""))
+		save_events_to_disk(merged)
+		with EVENTS_LOCK:
+			EVENTS_CACHE = merged
+			EVENTS_LAST_REFRESH = now_iso()
+			EVENTS_LAST_ERROR = None
+		return True
+	except Exception as exc:
+		with EVENTS_LOCK:
+			EVENTS_LAST_ERROR = str(exc)
+		return False
+	finally:
+		with EVENTS_LOCK:
+			EVENTS_REFRESH_IN_PROGRESS = False
+
+
+def events_refresh_loop() -> None:
+	while True:
+		refresh_events_from_luma(force=True)
+		time.sleep(LUMA_REFRESH_INTERVAL_SECONDS)
+
+
+def event_distance_km(event: dict, user_lat: Optional[float], user_lon: Optional[float]) -> Optional[float]:
+	if user_lat is None or user_lon is None:
+		return None
+	lat = to_float(event.get("lat"))
+	lon = to_float(event.get("lon"))
+	if lat is None or lon is None:
+		county = (event.get("county") or "").strip()
+		if county in COUNTY_CENTROIDS:
+			lat, lon = COUNTY_CENTROIDS[county]
+		else:
+			return None
+	return round(haversine_km(user_lat, user_lon, lat, lon), 2)
 
 
 def get_db() -> sqlite3.Connection:
@@ -501,13 +816,81 @@ def get_data():
 
 @app.route("/events")
 def get_events():
-	if not EVENTS_FILE.exists():
-		return jsonify({"events": []})
-	with open(EVENTS_FILE, "r", encoding="utf-8") as f:
-		return jsonify(json.load(f))
+	global EVENTS_CACHE
+	lat = to_float(request.args.get("lat"))
+	lon = to_float(request.args.get("lon"))
+	limit = int(request.args.get("limit", "50"))
+	limit = max(1, min(limit, 300))
+	irish_only = (request.args.get("irish_only", "0").strip().lower() in {"1", "true", "yes", "on"})
+	force_refresh = (request.args.get("refresh", "0").strip().lower() in {"1", "true", "yes", "on"})
+
+	with EVENTS_LOCK:
+		cached = list(EVENTS_CACHE)
+		last_refresh = EVENTS_LAST_REFRESH
+		last_error = EVENTS_LAST_ERROR
+		in_progress = EVENTS_REFRESH_IN_PROGRESS
+
+	if not cached:
+		cached = load_events_from_disk()
+		with EVENTS_LOCK:
+			EVENTS_CACHE = list(cached)
+
+	# Opportunistic refresh trigger if stale; do not block requests.
+	if not in_progress:
+		threading.Thread(target=refresh_events_from_luma, kwargs={"force": force_refresh}, daemon=True).start()
+
+	now = datetime.now(timezone.utc)
+	filtered = []
+	for event in cached:
+		if irish_only and not is_irish_focused_event(event):
+			continue
+		event_dt = parse_event_datetime(event)
+		if event_dt and event_dt < (now - timedelta(days=1)):
+			continue
+		distance_km = event_distance_km(event, lat, lon)
+		item = dict(event)
+		item["distance_km"] = distance_km
+		item["irish_focus"] = is_irish_focused_event(event)
+		filtered.append(item)
+
+	def rank_key(event: dict):
+		event_dt = parse_event_datetime(event)
+		is_upcoming = event_dt is None or event_dt >= now
+		distance = event.get("distance_km")
+		return (
+			0 if is_upcoming else 1,
+			distance if distance is not None else 999999.0,
+			event_dt or datetime.max.replace(tzinfo=timezone.utc),
+			event.get("name") or "",
+		)
+
+	filtered.sort(key=rank_key)
+	result = filtered[:limit]
+
+	return jsonify(
+		{
+			"scraped_at": last_refresh or now_iso(),
+			"total": len(result),
+			"available_total": len(filtered),
+			"events": result,
+			"meta": {
+				"lat": lat,
+				"lon": lon,
+				"irish_only": irish_only,
+				"force_refresh_requested": force_refresh,
+				"refresh_in_progress": in_progress,
+				"last_error": last_error,
+			},
+		}
+	)
 
 
 if __name__ == "__main__":
 	init_db()
 	seed_pubs_if_missing()
+	try:
+		EVENTS_CACHE = load_events_from_disk()
+	except Exception:
+		EVENTS_CACHE = []
+	threading.Thread(target=events_refresh_loop, daemon=True).start()
 	app.run(host="0.0.0.0", port=5001, debug=True)

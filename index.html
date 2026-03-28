@@ -485,6 +485,69 @@
             font-weight: 500;
         }
 
+        #route-pubs {
+            margin-top: 8px;
+            display: none;
+            border-top: 1px solid #ececec;
+            padding-top: 8px;
+        }
+
+        .route-pubs-header {
+            font-size: 0.72rem;
+            font-weight: 700;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: #7b2d00;
+            margin-bottom: 6px;
+        }
+
+        .route-pub-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid #f3e8df;
+            background: #fffaf5;
+            margin-bottom: 6px;
+        }
+
+        .route-pub-item:hover {
+            background: #fff2e6;
+            border-color: #e8d0bb;
+        }
+
+        .route-pub-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #e67e22;
+            margin-top: 5px;
+            flex-shrink: 0;
+        }
+
+        .route-pub-name {
+            font-size: 0.82rem;
+            font-weight: 700;
+            color: #3a2a1a;
+            line-height: 1.3;
+        }
+
+        .route-pub-meta {
+            font-size: 0.72rem;
+            color: #8a7560;
+            margin-top: 2px;
+            line-height: 1.3;
+        }
+
+        .route-pub-empty {
+            font-size: 0.78rem;
+            color: #999;
+            font-style: italic;
+            padding: 2px 2px 6px;
+        }
+
         .route-town-item {
             display: flex;
             align-items: center;
@@ -893,6 +956,7 @@
         </div>
         <div id="route-summary" style="display:none"></div>
         <div id="route-towns" style="display:none"></div>
+        <div id="route-pubs"></div>
         <button id="tour-btn" style="display:none">▶ Play Town Tour</button>
         <button id="tour-stop-btn">⏹ Stop Tour</button>
     </div>
@@ -946,6 +1010,39 @@
         // Initialize map
         const map = L.map('map', { zoomControl: false }).setView([53.3498, -7.2604], 7);
         L.control.zoom({ position: 'topright' }).addTo(map);
+
+        function markerBaseRadius(isCity) {
+            const z = map.getZoom();
+            if (z <= 6) return isCity ? 4 : 3;
+            if (z <= 8) return isCity ? 6 : 4;
+            if (z <= 10) return isCity ? 7 : 5;
+            return isCity ? 8 : 6;
+        }
+
+        function markerHighlightRadius(isCity) {
+            return markerBaseRadius(isCity) + 2;
+        }
+
+        function markerPanelRadius(isCity) {
+            return markerBaseRadius(isCity) + 3;
+        }
+
+        function refreshMarkerSizes() {
+            if (!geoJsonLayer) return;
+            geoJsonLayer.eachLayer(function(layer) {
+                if (!layer || !layer.feature) return;
+                const props = layer.feature.properties || {};
+                const isCity = props.type === 'city';
+                const isOnRoute = highlightedLayers.includes(layer);
+                const isInCounty = countyHighlightedLayers.includes(layer);
+                const isPanel = activePanelLayer === layer;
+
+                let radius = markerBaseRadius(isCity);
+                if (isOnRoute || isInCounty) radius = markerHighlightRadius(isCity);
+                if (isPanel) radius = markerPanelRadius(isCity);
+                layer.setStyle({ radius: radius });
+            });
+        }
 
         L.tileLayer('https://tiles.stadiamaps.com/tiles/alidade_smooth/{z}/{x}/{y}{r}.png', {
             maxZoom: 20,
@@ -1038,7 +1135,7 @@
                     fillColor: prevOnRoute ? '#e67e22' : '#1a5e3c',
                     color: '#fff',
                     weight: 1,
-                    radius: prevCity ? 8 : 6
+                    radius: markerBaseRadius(prevCity)
                 });
                 activePanelLayer.unbindTooltip();
             }
@@ -1050,7 +1147,7 @@
             layer.setStyle({
                 color: '#e67e22',
                 weight: 3,
-                radius: (isCity ? 8 : 6) + 2
+                radius: markerPanelRadius(isCity)
             });
 
             // Show town name label below the marker
@@ -1146,11 +1243,12 @@
                     fillColor: isOnRoute ? '#e67e22' : '#1a5e3c',
                     color: '#fff',
                     weight: 1,
-                    radius: isCity ? 8 : 6
+                    radius: markerBaseRadius(isCity)
                 });
                 activePanelLayer.unbindTooltip();
                 activePanelLayer = null;
             }
+            refreshMarkerSizes();
         }
 
         // Close button
@@ -1173,6 +1271,10 @@
         map.on('click', function() {
             if (_panelJustOpened) return;
             closePanel();
+        });
+
+        map.on('zoomend', function() {
+            refreshMarkerSizes();
         });
 
         // =====================================================================
@@ -1218,8 +1320,9 @@
                 } else {
                     geoJsonLayer = L.geoJSON(data, {
                         pointToLayer: function(feature, latlng) {
+                            const isCity = feature.properties.type === 'city';
                             return L.circleMarker(latlng, {
-                                radius: feature.properties.type === 'city' ? 8 : 6,
+                                radius: markerBaseRadius(isCity),
                                 fillColor: '#1a5e3c',
                                 color: '#fff',
                                 weight: 1,
@@ -1235,6 +1338,7 @@
                         }
                     }).addTo(map);
                 }
+                refreshMarkerSizes();
             } catch (err) {
                 console.error('Error loading data:', err);
                 clearInterval(barTimer);
@@ -1251,10 +1355,16 @@
         // Events data
         // =====================================================================
         let eventsData = [];
+        let pubsData = [];
 
         fetch('/events')
             .then(r => r.json())
             .then(function(d) { eventsData = d.events || []; })
+            .catch(function() {});
+
+        fetch('/api/pubs')
+            .then(r => r.json())
+            .then(function(d) { pubsData = d.pubs || []; })
             .catch(function() {});
 
         // =====================================================================
@@ -1407,7 +1517,7 @@
                 layer.setStyle({
                     fillColor: isOnRoute ? '#e67e22' : '#1a5e3c',
                     color: '#fff', weight: 1,
-                    radius: isCity ? 8 : 6, fillOpacity: 0.8
+                    radius: markerBaseRadius(isCity), fillOpacity: 0.8
                 });
             });
             countyHighlightedLayers = [];
@@ -1561,6 +1671,7 @@
         let toPlace = null;
         let routePolyline = null;
         let routeMarkers = [];
+        let routePubMarkers = [];
         let highlightedLayers = [];
         let routeTownMatches = [];
         let routeWaypointNames = [];
@@ -1712,7 +1823,8 @@
                 .filter(Boolean)
                 .map(layer => ({ layer }));
             routeTownMatches.forEach(function(m) {
-                m.layer.setStyle({ fillColor: '#e67e22', radius: 9 });
+                const isCity = m.layer.feature && m.layer.feature.properties.type === 'city';
+                m.layer.setStyle({ fillColor: '#e67e22', radius: markerHighlightRadius(isCity) });
                 highlightedLayers.push(m.layer);
             });
             buildTownsList();
@@ -1727,9 +1839,11 @@
             if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
             routeMarkers.forEach(m => map.removeLayer(m));
             routeMarkers = [];
+            routePubMarkers.forEach(m => map.removeLayer(m));
+            routePubMarkers = [];
             highlightedLayers.forEach(function(layer) {
                 const isCity = layer.feature && layer.feature.properties.type === 'city';
-                layer.setStyle({ fillColor: '#1a5e3c', color: '#fff', weight: 1, radius: isCity ? 8 : 6 });
+                layer.setStyle({ fillColor: '#1a5e3c', color: '#fff', weight: 1, radius: markerBaseRadius(isCity) });
             });
             highlightedLayers = [];
             fromPlace = null;
@@ -1740,6 +1854,9 @@
             document.getElementById('route-towns').style.display = 'none';
             document.getElementById('tour-btn').style.display = 'none';
             document.getElementById('tour-stop-btn').style.display = 'none';
+            document.getElementById('route-pubs').style.display = 'none';
+            document.getElementById('route-pubs').innerHTML = '';
+            refreshMarkerSizes();
         }
 
         function makePinIcon(label, color) {
@@ -1749,6 +1866,84 @@
                 iconSize: [26, 26],
                 iconAnchor: [13, 13]
             });
+        }
+
+        function distancePointToSegmentKm(lat, lon, aLat, aLon, bLat, bLon) {
+            const kmPerDegLat = 111.32;
+            const cosLat = Math.cos(((lat + aLat + bLat) / 3) * Math.PI / 180);
+            const kmPerDegLon = 111.32 * Math.max(0.2, cosLat);
+
+            const px = lon * kmPerDegLon;
+            const py = lat * kmPerDegLat;
+            const ax = aLon * kmPerDegLon;
+            const ay = aLat * kmPerDegLat;
+            const bx = bLon * kmPerDegLon;
+            const by = bLat * kmPerDegLat;
+
+            const dx = bx - ax;
+            const dy = by - ay;
+            const lenSq = dx * dx + dy * dy;
+            if (lenSq === 0) {
+                const ddx = px - ax;
+                const ddy = py - ay;
+                return Math.sqrt(ddx * ddx + ddy * ddy);
+            }
+
+            let t = ((px - ax) * dx + (py - ay) * dy) / lenSq;
+            t = Math.max(0, Math.min(1, t));
+            const cx = ax + t * dx;
+            const cy = ay + t * dy;
+            const ex = px - cx;
+            const ey = py - cy;
+            return Math.sqrt(ex * ex + ey * ey);
+        }
+
+        function distanceToRouteKm(lat, lon, latLngs) {
+            if (!latLngs || latLngs.length < 2) return Infinity;
+            let minDist = Infinity;
+            for (let i = 1; i < latLngs.length; i++) {
+                const prev = latLngs[i - 1];
+                const next = latLngs[i];
+                const d = distancePointToSegmentKm(lat, lon, prev[0], prev[1], next[0], next[1]);
+                if (d < minDist) minDist = d;
+            }
+            return minDist;
+        }
+
+        function renderRoutePubs(pubMatches) {
+            const pubsEl = document.getElementById('route-pubs');
+            pubsEl.innerHTML = '';
+
+            if (!pubMatches || pubMatches.length === 0) {
+                pubsEl.innerHTML = '<div class="route-pubs-header">Pubs on this route</div><div class="route-pub-empty">No pub stops close to this route yet.</div>';
+                pubsEl.style.display = 'block';
+                return;
+            }
+
+            const header = document.createElement('div');
+            header.className = 'route-pubs-header';
+            header.textContent = `Pubs on this route (${pubMatches.length})`;
+            pubsEl.appendChild(header);
+
+            pubMatches.forEach(function(match) {
+                const item = document.createElement('div');
+                item.className = 'route-pub-item';
+                item.innerHTML = `
+                    <div class="route-pub-dot"></div>
+                    <div>
+                        <div class="route-pub-name">${match.pub.name || 'Pub'}</div>
+                        <div class="route-pub-meta">${match.pub.address || ''}</div>
+                        <div class="route-pub-meta">~${match.distanceKm.toFixed(1)} km off route</div>
+                    </div>
+                `;
+                item.addEventListener('click', function() {
+                    map.flyTo([match.pub.latitude, match.pub.longitude], 13);
+                    match.marker.openPopup();
+                });
+                pubsEl.appendChild(item);
+            });
+
+            pubsEl.style.display = 'block';
         }
 
         async function drawRoute() {
@@ -1841,7 +2036,7 @@
                 // Step 5 — Highlight waypoint towns
                 highlightedLayers.forEach(function(layer) {
                     const isCity = layer.feature && layer.feature.properties.type === 'city';
-                    layer.setStyle({ fillColor: '#1a5e3c', color: '#fff', weight: 1, radius: isCity ? 8 : 6 });
+                    layer.setStyle({ fillColor: '#1a5e3c', color: '#fff', weight: 1, radius: markerBaseRadius(isCity) });
                 });
                 highlightedLayers = [];
 
@@ -1849,19 +2044,53 @@
                 routeWaypointNames = waypoints.map(t => t.layer.feature.properties.name);
 
                 routeTownMatches.forEach(function(m) {
-                    m.layer.setStyle({ fillColor: '#e67e22', radius: 9 });
+                    const isCity = m.layer.feature && m.layer.feature.properties.type === 'city';
+                    m.layer.setStyle({ fillColor: '#e67e22', radius: markerHighlightRadius(isCity) });
                     highlightedLayers.push(m.layer);
                 });
+
+                routePubMarkers.forEach(m => map.removeLayer(m));
+                routePubMarkers = [];
+
+                const pubsOnRoute = pubsData
+                    .filter(function(pub) {
+                        return typeof pub.latitude === 'number' && typeof pub.longitude === 'number';
+                    })
+                    .map(function(pub) {
+                        const distanceKm = distanceToRouteKm(pub.latitude, pub.longitude, latLngs);
+                        return { pub: pub, distanceKm: distanceKm };
+                    })
+                    .filter(function(item) { return item.distanceKm <= 6; })
+                    .sort(function(a, b) { return a.distanceKm - b.distanceKm; })
+                    .slice(0, 8);
+
+                pubsOnRoute.forEach(function(item) {
+                    const marker = L.marker([item.pub.latitude, item.pub.longitude], {
+                        icon: L.divIcon({
+                            className: '',
+                            html: '<div style="background:#7B2D00;color:#fff;border:2px solid #D4722A;border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:12px;box-shadow:0 2px 6px rgba(0,0,0,0.35)">🍺</div>',
+                            iconSize: [22, 22],
+                            iconAnchor: [11, 11]
+                        })
+                    }).addTo(map);
+                    marker.bindPopup(`<b>${item.pub.name || 'Pub'}</b><br>${item.pub.address || ''}<br><small>~${item.distanceKm.toFixed(1)} km off route</small>`);
+                    item.marker = marker;
+                    routePubMarkers.push(marker);
+                });
+
+                renderRoutePubs(pubsOnRoute);
 
                 const distKm = Math.round(route.distance / 1000);
                 const duration = formatDuration(route.duration);
                 summaryEl.textContent = `${distKm} km · ~${duration}  ·  ${waypoints.length} town${waypoints.length !== 1 ? 's' : ''}  ·  scenic route`;
 
                 buildTownsList();
+                refreshMarkerSizes();
 
             } catch (err) {
                 console.error('Route error:', err);
                 document.getElementById('route-summary').textContent = 'Route failed. Try again.';
+                renderRoutePubs([]);
             }
         }
 
@@ -1977,9 +2206,12 @@
             routeMarkers.filter(m => m._isFrom).forEach(m => map.removeLayer(m));
             routeMarkers = routeMarkers.filter(m => !m._isFrom);
             if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
+            routePubMarkers.forEach(m => map.removeLayer(m));
+            routePubMarkers = [];
             document.getElementById('route-summary').style.display = 'none';
             document.getElementById('route-towns').style.display = 'none';
             document.getElementById('tour-btn').style.display = 'none';
+            document.getElementById('route-pubs').style.display = 'none';
         });
 
         document.getElementById('to-clear').addEventListener('mousedown', function(e) {
@@ -1989,9 +2221,12 @@
             routeMarkers.filter(m => m._isTo).forEach(m => map.removeLayer(m));
             routeMarkers = routeMarkers.filter(m => !m._isTo);
             if (routePolyline) { map.removeLayer(routePolyline); routePolyline = null; }
+            routePubMarkers.forEach(m => map.removeLayer(m));
+            routePubMarkers = [];
             document.getElementById('route-summary').style.display = 'none';
             document.getElementById('route-towns').style.display = 'none';
             document.getElementById('tour-btn').style.display = 'none';
+            document.getElementById('route-pubs').style.display = 'none';
         });
 
         document.getElementById('clear-route').addEventListener('click', clearRoute);

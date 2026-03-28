@@ -5,6 +5,34 @@ import type {
   WalletResponse,
 } from '../types/craic';
 
+export type RankedEvent = {
+  name: string;
+  date: string;
+  time: string;
+  venue: string;
+  address: string;
+  county: string;
+  url: string;
+  description: string;
+  host: string;
+  tags: string[];
+  lat?: number | null;
+  lon?: number | null;
+  distance_km?: number | null;
+  irish_focus?: boolean;
+};
+
+export type RankedEventsResponse = {
+  scraped_at: string;
+  total: number;
+  available_total: number;
+  events: RankedEvent[];
+  meta?: {
+    refresh_in_progress?: boolean;
+    last_error?: string | null;
+  };
+};
+
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     headers: { 'Content-Type': 'application/json', ...(options?.headers ?? {}) },
@@ -43,4 +71,21 @@ export async function createCheckin(userID: string, pubID: string, note?: string
     method: 'POST',
     body: JSON.stringify({ userID, pubID, note: note ?? '' }),
   });
+}
+
+export async function fetchRankedEvents(params?: {
+  lat?: number;
+  lon?: number;
+  irishOnly?: boolean;
+  limit?: number;
+  refresh?: boolean;
+}): Promise<RankedEventsResponse> {
+  const qs = new URLSearchParams();
+  if (typeof params?.lat === 'number') qs.set('lat', String(params.lat));
+  if (typeof params?.lon === 'number') qs.set('lon', String(params.lon));
+  if (params?.irishOnly) qs.set('irish_only', '1');
+  if (typeof params?.limit === 'number') qs.set('limit', String(params.limit));
+  if (params?.refresh) qs.set('refresh', '1');
+  const suffix = qs.toString() ? `?${qs.toString()}` : '';
+  return request<RankedEventsResponse>(`/events${suffix}`);
 }

@@ -1,23 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Colors } from '../constants/Colors';
 import { useCraicCoins } from '../contexts/CraicCoinsContext';
+import { fetchRankedEvents, type RankedEvent } from '../lib/api';
 
-interface EventItem {
-  name: string;
-  date: string;
-  time: string;
-  venue: string;
-  address: string;
-  county: string;
-  url: string;
-  description: string;
-  host: string;
-  tags: string[];
-}
-
-interface EventsData {
-  events: EventItem[];
-}
+type EventItem = RankedEvent;
 
 const VISITED_KEY = 'craic-visited-events';
 
@@ -37,38 +23,135 @@ function markEventVisited(id: string) {
   }
 }
 
+function parseEventDateTime(ev: EventItem): Date | null {
+  if (!ev.date) return null;
+  const timePart = (ev.time || '00:00').replace(' UTC', '');
+  const iso = `${ev.date}T${timePart.length === 5 ? `${timePart}:00` : '00:00:00'}Z`;
+  const parsed = new Date(iso);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function isUpcomingEvent(ev: EventItem): boolean {
+  const dt = parseEventDateTime(ev);
+  if (!dt) return true;
+  const yesterday = new Date();
+  yesterday.setDate(yesterday.getDate() - 1);
+  return dt >= yesterday;
+}
+
 export default function EventsPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
+  const [allCount, setAllCount] = useState(0);
   const [filter, setFilter] = useState('');
+  const [irishOnly, setIrishOnly] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastSync, setLastSync] = useState('');
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null);
   const [visitedEvents, setVisitedEvents] = useState<string[]>(getVisitedEvents());
   const [coinPopup, setCoinPopup] = useState<{ name: string; amount: number } | null>(null);
   const { addCoins } = useCraicCoins();
 
+  const loadFallbackEvents = async () => {
+    const response = await fetch('/events.json');
+    const data = await response.json() as { events?: EventItem[]; total?: number };
+    const fallbackEvents = data.events || [];
+    setEvents(fallbackEvents);
+    setAllCount(data.total || fallbackEvents.length);
+  };
+
   useEffect(() => {
-    fetch('/events.json')
-      .then((r) => r.json())
-      .then((data: EventsData) => setEvents(data.events || []))
-      .catch((err) => console.error('Failed to load events', err));
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude }),
+      () => setCoords(null),
+      { enableHighAccuracy: true, maximumAge: 300000, timeout: 8000 }
+    );
   }, []);
 
-  const filtered = events.filter((ev) => {
-    if (!filter) return true;
+  useEffect(() => {
+    let alive = true;
+
+    const load = async (force = false) => {
+      try {
+        if (force) setRefreshing(true);
+        else setLoading(true);
+        const data = await fetchRankedEvents({
+          lat: coords?.lat,
+          lon: coords?.lon,
+          irishOnly,
+          limit: 120,
+          refresh: force,
+        });
+        if (!alive) return;
+        const liveEvents = data.events || [];
+        if (liveEvents.length > 0) {
+          setEvents(liveEvents);
+          setAllCount(data.available_total || data.total || 0);
+          setLastSync(data.scraped_at || '');
+        } else {
+          await loadFallbackEvents();
+          setLastSync(data.scraped_at || '');
+        }
+      } catch (err) {
+        if (!alive) return;
+        console.error('Failed to load events', err);
+        await loadFallbackEvents();
+      } finally {
+        if (!alive) return;
+        setLoading(false);
+        setRefreshing(false);
+      }
+    };
+
+    void load(false);
+    const interval = window.setInterval(() => {
+      void load(false);
+    }, 60000);
+
+    return () => {
+      alive = false;
+      window.clearInterval(interval);
+    };
+  }, [coords?.lat, coords?.lon, irishOnly]);
+
+  const filtered = useMemo(() => {
     const q = filter.toLowerCase();
-    return (
-      ev.name?.toLowerCase().includes(q) ||
-      ev.county?.toLowerCase().includes(q) ||
-      ev.venue?.toLowerCase().includes(q) ||
-      ev.host?.toLowerCase().includes(q)
-    );
-  });
+    return events
+      .filter((ev) => isUpcomingEvent(ev))
+      .filter((ev) => {
+        if (!filter) return true;
+        return (
+          ev.name?.toLowerCase().includes(q) ||
+          ev.county?.toLowerCase().includes(q) ||
+          ev.venue?.toLowerCase().includes(q) ||
+          ev.host?.toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const aDist = typeof a.distance_km === 'number' ? a.distance_km : Number.POSITIVE_INFINITY;
+        const bDist = typeof b.distance_km === 'number' ? b.distance_km : Number.POSITIVE_INFINITY;
+        if (aDist !== bDist) return aDist - bDist;
+
+        const aDt = parseEventDateTime(a);
+        const bDt = parseEventDateTime(b);
+        if (aDt && bDt) return aDt.getTime() - bDt.getTime();
+        if (aDt) return -1;
+        if (bDt) return 1;
+        return (a.name || '').localeCompare(b.name || '');
+      });
+  }, [events, filter]);
 
   // Group by date
-  const grouped: Record<string, EventItem[]> = {};
-  filtered.forEach((ev) => {
-    const key = ev.date || 'TBD';
-    if (!grouped[key]) grouped[key] = [];
-    grouped[key].push(ev);
-  });
+  const grouped: Record<string, EventItem[]> = useMemo(() => {
+    const result: Record<string, EventItem[]> = {};
+    filtered.forEach((ev) => {
+      const key = ev.date || 'TBD';
+      if (!result[key]) result[key] = [];
+      result[key].push(ev);
+    });
+    return result;
+  }, [filtered]);
 
   const formatDate = (dateStr: string) => {
     try {
@@ -129,8 +212,13 @@ export default function EventsPage() {
         <div style={{ fontSize: 42, marginBottom: 6 }}>🎉</div>
         <h1 style={{ color: Colors.text, fontSize: 24, fontWeight: 800, margin: 0 }}>Events</h1>
         <p style={{ color: Colors.accent, fontSize: 13, fontStyle: 'italic', marginTop: 4 }}>
-          {events.length} events across Ireland
+          {allCount} ranked by closest + date
         </p>
+        {lastSync && (
+          <p style={{ color: Colors.textMuted, fontSize: 11, marginTop: 4 }}>
+            Synced {new Date(lastSync).toLocaleTimeString('en-IE', { hour: '2-digit', minute: '2-digit' })}
+          </p>
+        )}
       </div>
 
       {/* Search */}
@@ -147,10 +235,67 @@ export default function EventsPage() {
             fontSize: 14, outline: 'none',
           }}
         />
+
+        <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+          <button
+            onClick={() => setIrishOnly((v) => !v)}
+            style={{
+              flex: 1,
+              backgroundColor: irishOnly ? Colors.success : Colors.surface,
+              border: `1px solid ${irishOnly ? Colors.success : Colors.border}`,
+              color: irishOnly ? '#fff' : Colors.text,
+              borderRadius: 10,
+              padding: '8px 10px',
+              fontWeight: 700,
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            {irishOnly ? '☘️ Irish Events On' : 'Irish Events Only'}
+          </button>
+          <button
+            onClick={() => {
+              setRefreshing(true);
+              void fetchRankedEvents({ lat: coords?.lat, lon: coords?.lon, irishOnly, limit: 120, refresh: true })
+                .then((data) => {
+                  const liveEvents = data.events || [];
+                  if (liveEvents.length > 0) {
+                    setEvents(liveEvents);
+                    setAllCount(data.available_total || data.total || 0);
+                  } else {
+                    void loadFallbackEvents();
+                  }
+                  setLastSync(data.scraped_at || '');
+                })
+                .catch((err) => {
+                  console.error('Manual refresh failed', err);
+                  void loadFallbackEvents();
+                })
+                .finally(() => setRefreshing(false));
+            }}
+            style={{
+              backgroundColor: Colors.accent,
+              border: 'none',
+              color: Colors.background,
+              borderRadius: 10,
+              padding: '8px 12px',
+              fontWeight: 800,
+              fontSize: 12,
+              cursor: 'pointer',
+              minWidth: 96,
+            }}
+          >
+            {refreshing ? 'Refreshing…' : 'Refresh'}
+          </button>
+        </div>
       </div>
 
       {/* Events list */}
       <div style={{ padding: '12px 20px' }}>
+        {loading && (
+          <div style={{ color: Colors.textSecondary, fontSize: 13, marginBottom: 10 }}>Loading live events…</div>
+        )}
+
         {Object.entries(grouped).map(([date, dateEvents]) => (
           <div key={date} style={{ marginBottom: 20 }}>
             <div style={{
@@ -203,12 +348,18 @@ export default function EventsPage() {
                       }}>{ev.name}</div>
                       <div style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 3 }}>
                         {ev.time?.replace(' UTC', '')} · {ev.venue || ev.county}
+                        {typeof ev.distance_km === 'number' ? ` · ${ev.distance_km.toFixed(1)}km away` : ''}
                       </div>
                       {ev.host && (
                         <div style={{
                           color: Colors.textMuted, fontSize: 11, marginTop: 2,
                           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
                         }}>by {ev.host}</div>
+                      )}
+                      {ev.irish_focus && (
+                        <div style={{ color: Colors.success, fontSize: 11, marginTop: 4, fontWeight: 700 }}>
+                          ☘️ Irish language focused
+                        </div>
                       )}
                     </div>
                     <span style={{ color: Colors.accent, fontSize: 16, fontWeight: 700, flexShrink: 0 }}>→</span>
