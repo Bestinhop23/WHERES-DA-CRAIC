@@ -1,34 +1,38 @@
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Colors } from '../constants/Colors';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCraicCoins } from '../contexts/CraicCoinsContext';
+
+const TABS = [
+  { path: '/map', icon: '🗺️', ga: 'Léarscáil', en: 'Map' },
+  { path: '/scan', icon: '📲', ga: 'NFC', en: 'NFC' },
+  { path: '/events', icon: '🎭', ga: 'Imeachtaí', en: 'Events' },
+  { path: '/wallet', icon: '🪙', ga: 'Sparán', en: 'Wallet' },
+];
 
 export default function TabBar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { copy, language, setLanguage } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const { balance } = useCraicCoins();
 
-  if (location.pathname === '/' || location.pathname.startsWith('/tag/')) return null;
+  if (location.pathname === '/redeem') return null;
 
-  const tabs = [
-    { path: '/map', label: copy.tabs.map, icon: '🗺️' },
-    { path: '/scan', label: copy.tabs.scan, icon: '📱' },
-    { path: '/planner', label: 'Planner', icon: '🏛️' },
-    { path: '/events', label: 'Events', icon: '🎉' },
-    { path: '/wallet', label: `☘️ ${balance}`, icon: '💰' },
-  ];
+  const isMapActive = location.pathname === '/' || location.pathname.startsWith('/map');
 
   return (
     <div style={{
       display: 'flex',
-      backgroundColor: Colors.surface,
-      borderTop: `1px solid ${Colors.border}`,
-      paddingBottom: 'env(safe-area-inset-bottom, 16px)',
-      paddingTop: 8,
+      backgroundColor: '#0d1117',
+      borderTop: '1px solid #30363d',
+      paddingBottom: 'env(safe-area-inset-bottom, 12px)',
+      paddingTop: 6,
     }}>
-      {tabs.map(tab => {
-        const active = location.pathname.startsWith(tab.path);
+      {TABS.map(tab => {
+        const active = tab.path === '/map'
+          ? isMapActive
+          : location.pathname.startsWith(tab.path);
+        const label = language === 'ga' ? tab.ga : tab.en;
+        const displayLabel = tab.path === '/wallet' ? `${label} · ${balance}` : label;
         return (
           <button
             key={tab.path}
@@ -38,16 +42,22 @@ export default function TabBar() {
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
-              gap: 4,
-              padding: '8px 0 12px',
+              gap: 3,
+              padding: '6px 0 10px',
               background: 'none',
               border: 'none',
               cursor: 'pointer',
-              color: active ? Colors.accent : Colors.textMuted,
+              color: active ? '#169B62' : '#6e7681',
+              transition: 'color 0.15s',
             }}
           >
-            <span style={{ fontSize: 24 }}>{tab.icon}</span>
-            <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.5 }}>{tab.label}</span>
+            <span style={{ fontSize: 22 }}>{tab.icon}</span>
+            <span style={{
+              fontSize: 10,
+              fontWeight: 700,
+              letterSpacing: 0.4,
+              color: active ? '#169B62' : '#6e7681',
+            }}>{displayLabel}</span>
           </button>
         );
       })}
@@ -58,16 +68,18 @@ export default function TabBar() {
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 4,
-          padding: '8px 0 12px',
+          gap: 3,
+          padding: '6px 0 10px',
           background: 'none',
           border: 'none',
           cursor: 'pointer',
-          color: Colors.textMuted,
+          color: '#6e7681',
         }}
       >
-        <span style={{ fontSize: 24 }}>{language === 'ga' ? '🇮🇪' : '🇬🇧'}</span>
-        <span style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.5 }}>{language === 'ga' ? 'GA' : 'EN'}</span>
+        <span style={{ fontSize: 22 }}>{language === 'ga' ? '🇮🇪' : '🇬🇧'}</span>
+        <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: 0.4 }}>
+          {language === 'ga' ? 'Gaeilge' : 'English'}
+        </span>
       </button>
     </div>
   );

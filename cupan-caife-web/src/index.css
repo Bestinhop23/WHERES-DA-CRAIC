@@ -1,66 +1,350 @@
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Manrope:wght@500;600;700;800&display=swap');
+
+:root {
+  --bg: #0d1117;
+  --bg-soft: #0d1117;
+  --surface: #161b22;
+  --ink: #f0f0f0;
+  --muted: #8b949e;
+  --brand: #169B62;
+  --brand-2: #d4a029;
+  --line: #30363d;
+  --success: #2ea043;
+  --danger: #f85149;
+}
+
 * {
+  box-sizing: border-box;
   margin: 0;
   padding: 0;
-  box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
 }
 
-html, body, #root {
-  height: 100%;
+html,
+body,
+#root {
   width: 100%;
+  height: 100%;
   overflow: hidden;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background: #0d1117;
-  color: #f0f0f0;
-  -webkit-font-smoothing: antialiased;
-  touch-action: manipulation;
 }
 
-@media (min-width: 500px) {
-  #root {
-    max-width: 430px;
-    margin: 0 auto;
-    border-left: 1px solid #30363d;
-    border-right: 1px solid #30363d;
+body {
+  font-family: 'Manrope', sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+}
+
+h1,
+h2,
+h3 {
+  font-family: 'Fraunces', serif;
+  line-height: 1.1;
+}
+
+.irish-bar {
+  height: 4px;
+  background: linear-gradient(90deg, #169b62 33%, #ffffff 33% 66%, #ff883e 66%);
+}
+
+.app-shell {
+  height: 100%;
+  overflow: auto;
+  padding: 10px 14px 92px;
+}
+
+.hero-card,
+.card,
+.phrase-card {
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--surface);
+  padding: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+.hero-card {
+  margin: 10px 0 12px;
+  background: linear-gradient(135deg, #111c16 0%, #162a1e 100%);
+}
+
+.hero-card h1 {
+  font-size: 1.75rem;
+  margin-bottom: 6px;
+}
+
+.hero-card p {
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.hero-eyebrow {
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #169B62;
+  margin-bottom: 8px;
+}
+
+.section-title {
+  font-size: 1.05rem;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.map-frame {
+  height: 230px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  overflow: hidden;
+  margin: 12px 0;
+}
+
+.nfc-callout {
+  border: 1px dashed rgba(212,160,41,0.4);
+  background: rgba(212,160,41,0.06);
+  padding: 12px;
+  border-radius: 12px;
+}
+
+.nfc-callout-title {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: #d4a029;
+  margin-bottom: 4px;
+}
+
+.nfc-callout-text {
+  color: var(--muted);
+  font-size: 0.86rem;
+}
+
+.pub-list {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 70px;
+}
+
+.pub-card {
+  text-align: left;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  border-radius: 14px;
+  padding: 12px;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.pub-card:hover {
+  transform: translateY(-2px);
+  border-color: #169B62;
+}
+
+.pub-card-active {
+  border-color: var(--brand);
+}
+
+.pub-card-title {
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.pub-card-meta {
+  color: var(--muted);
+  font-size: 0.84rem;
+  margin-top: 2px;
+}
+
+.pub-card-badges {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.badge {
+  border-radius: 999px;
+  background: #f0eadf;
+  border: 1px solid #ddcfbc;
+  padding: 3px 9px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #4f594f;
+}
+
+.floating-select {
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: 76px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
+  background: rgba(22, 27, 34, 0.97);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.5);
+}
+
+.floating-title {
+  font-size: 0.96rem;
+  font-weight: 800;
+}
+
+.floating-sub {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.btn {
+  border: none;
+  background: linear-gradient(135deg, var(--brand) 0%, #2e8c5f 100%);
+  color: #f7fff9;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.btn-secondary {
+  background: linear-gradient(135deg, var(--brand-2) 0%, #e7883a 100%);
+}
+
+.btn-ghost {
+  border: 1px solid var(--line);
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.phrase-title {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #169B62;
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.phrase-ga {
+  font-size: 1.2rem;
+  font-weight: 800;
+  margin-bottom: 6px;
+}
+
+.phrase-meta {
+  color: var(--muted);
+  margin-bottom: 6px;
+  font-size: 0.85rem;
+}
+
+.phrase-en {
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.status-success {
+  margin-top: 10px;
+  color: var(--success);
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.status-error {
+  margin-top: 10px;
+  color: var(--danger);
+  font-weight: 700;
+  font-size: 0.86rem;
+}
+
+.plain-list {
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.plain-list li {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 9px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+
+.coin-burst {
+  position: fixed;
+  inset: 35% 0 auto;
+  z-index: 3000;
+  text-align: center;
+  pointer-events: none;
+  animation: coin-fly 1.8s ease forwards;
+}
+
+.coin-icon {
+  font-size: 2.5rem;
+  margin-bottom: 6px;
+}
+
+.coin-pill {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 999px;
+  background: #169B62;
+  color: #fff;
+  font-size: 1rem;
+  font-weight: 800;
+  box-shadow: 0 8px 20px rgba(22, 155, 98, 0.35);
+}
+
+.coin-label {
+  margin-top: 6px;
+  color: #169B62;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+@keyframes coin-fly {
+  0% {
+    transform: translateY(22px) scale(0.7);
+    opacity: 0;
+  }
+  25% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-55px) scale(1.05);
+    opacity: 0;
   }
 }
 
-::-webkit-scrollbar { display: none; }
-* { -ms-overflow-style: none; scrollbar-width: none; }
-
-/* Irish tricolour accent bar */
-.irish-bar {
-  height: 4px;
-  background: linear-gradient(90deg, #169B62 33%, #FFFFFF 33% 66%, #FF883E 66%);
+.redeem-shell {
+  display: grid;
+  gap: 12px;
 }
 
-/* Pulse animation for NFC */
-@keyframes pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.12); }
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+  background: rgba(255,255,255,0.08);
+  border-radius: 5px;
+  padding: 1px 5px;
+  color: var(--ink);
 }
-@keyframes pop {
-  0% { transform: scale(0.3); opacity: 0; }
-  50% { transform: scale(1.1); }
-  100% { transform: scale(1); opacity: 1; }
-}
-.pulse { animation: pulse 2s ease-in-out infinite; }
-.pop { animation: pop 0.5s ease forwards; }
 
-/* Leaflet dark theme */
-.leaflet-container {
-  background: #0a1929 !important;
-  touch-action: pan-x pan-y;
+@media (min-width: 700px) {
+  #root {
+    max-width: 460px;
+    margin: 0 auto;
+    border-left: 1px solid var(--line);
+    border-right: 1px solid var(--line);
+    background: var(--bg);
+  }
 }
-.leaflet-control-attribution {
-  background: rgba(13, 17, 23, 0.8) !important;
-  color: #6e7681 !important;
-  font-size: 10px !important;
-}
-.leaflet-control-attribution a { color: #8b949e !important; }
-.leaflet-control-zoom a {
-  background: #161b22 !important;
-  color: #f0f0f0 !important;
-  border-color: #30363d !important;
-}
-.leaflet-tile-pane { will-change: transform; }

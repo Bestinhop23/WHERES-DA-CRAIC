@@ -36,6 +36,40 @@ pip install flask flask-cors requests tqdm openai python-dotenv
 
 ## Running the Project
 
+## Where's The Craic Pub Demo (new)
+
+Run backend and frontend together in separate terminals:
+
+```bash
+# Terminal 1 - backend API (Flask + SQLite)
+cd /Users/johnathan/Downloads/untitled\ folder/WHERES-DA-CRAIC
+source .venv/bin/activate
+python server.py
+```
+
+```bash
+# Terminal 2 - frontend app (Vite)
+cd /Users/johnathan/Downloads/untitled\ folder/WHERES-DA-CRAIC/cupan-caife-web
+npm install
+npm run dev -- --host --port 5173
+```
+
+Open `http://localhost:5173`.
+
+NFC simulation URL format:
+
+`http://localhost:5173/redeem?pubID=padraigs`
+
+Backend API smoke test:
+
+```bash
+curl http://localhost:5001/api/health
+curl http://localhost:5001/api/pubs
+curl -X POST http://localhost:5001/api/redeem \
+	-H 'Content-Type: application/json' \
+	-d '{"userID":"demo-user","pubID":"padraigs","deviceFingerprint":"test"}'
+```
+
 ### Step 1: Fetch Irish Places
 Fetch Irish towns, cities, villages from OpenStreetMap:
 

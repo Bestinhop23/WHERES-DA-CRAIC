@@ -9,6 +9,8 @@ import TagPage from './pages/TagPage';
 import WalletPage from './pages/WalletPage';
 import PlannerPage from './pages/PlannerPage';
 import EventsPage from './pages/EventsPage';
+import PubPage from './pages/PubPage';
+import RedeemPage from './pages/RedeemPage';
 import TabBar from './components/TabBar';
 
 export default function App() {
@@ -19,14 +21,17 @@ export default function App() {
           <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
             <div style={{ flex: 1, overflow: 'hidden' }}>
               <Routes>
-                <Route path="/" element={<Home />} />
+                <Route path="/" element={<MapPage />} />
+                <Route path="/home" element={<Home />} />
                 <Route path="/map" element={<MapPage />} />
                 <Route path="/scan" element={<ScanPage />} />
                 <Route path="/shop/:id" element={<ShopPage />} />
                 <Route path="/tag/:shopId" element={<TagPage />} />
-                <Route path="/wallet" element={<WalletPage />} />
                 <Route path="/planner" element={<PlannerPage />} />
                 <Route path="/events" element={<EventsPage />} />
+                <Route path="/pub/:pubID" element={<PubPage />} />
+                <Route path="/redeem" element={<RedeemPage />} />
+                <Route path="/wallet" element={<WalletPage />} />
               </Routes>
             </div>
             <TabBar />

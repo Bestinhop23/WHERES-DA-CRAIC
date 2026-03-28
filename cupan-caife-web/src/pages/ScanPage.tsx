@@ -1,309 +1,110 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Colors } from '../constants/Colors';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useCraicCoins } from '../contexts/CraicCoinsContext';
-import shopsData from '../data/shops.json';
+import pubsData from '../data/pubs.json';
 
-type Shop = (typeof shopsData)[number];
-type ScanState = 'idle' | 'selecting' | 'ready' | 'scanning' | 'success' | 'error';
+type Pub = (typeof pubsData)[number];
+
+const STEPS_GA = [
+  { icon: '👀', title: 'Aimsigh an Sticker', desc: 'Cuardaigh an sticker NFC ar an gcuntar sa tabhairne.' },
+  { icon: '📲', title: 'Tapail do Ghuthan', desc: 'Cuir cul do ghuthain in aice leis an sticker.' },
+  { icon: '🪙', title: 'CraicCoins Tuillte', desc: 'Osclaitear an leathanach agus bronntar CraicCoins ort.' },
+];
+
+const STEPS_EN = [
+  { icon: '👀', title: 'Find the Sticker', desc: 'Look for the NFC sticker on the counter at any participating pub.' },
+  { icon: '📲', title: 'Tap Your Phone', desc: 'Hold your phone near the sticker. No app launch needed.' },
+  { icon: '🪙', title: 'CraicCoins Earned', desc: 'The page opens automatically and your CraicCoins are awarded.' },
+];
 
 export default function ScanPage() {
-  const [state, setState] = useState<ScanState>('idle');
-  const [shop, setShop] = useState<Shop | null>(null);
   const navigate = useNavigate();
-  const { copy } = useLanguage();
-  const { addCoins, balance } = useCraicCoins();
-  const [coinsAwarded, setCoinsAwarded] = useState(false);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const nfcSupported = typeof window !== 'undefined' && 'NDEFReader' in (window as any);
-  const abortRef = useRef<AbortController | null>(null);
+  const { language } = useLanguage();
+  const { balance } = useCraicCoins();
+  const [manualCode, setManualCode] = useState('');
+  const [showManual, setShowManual] = useState(false);
 
-  // Cleanup NFC on unmount
-  useEffect(() => {
-    return () => { abortRef.current?.abort(); };
-  }, []);
+  const isGA = language === 'ga';
+  const steps = isGA ? STEPS_GA : STEPS_EN;
 
-  const handleScan = async () => {
-    if (!nfcSupported) {
-      setState('error');
-      return;
-    }
-
-    setState('scanning');
-
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const NDEFReader = (window as any).NDEFReader;
-      const reader = new NDEFReader();
-      abortRef.current = new AbortController();
-
-      await reader.scan({ signal: abortRef.current.signal });
-
-      reader.addEventListener('reading', ({ serialNumber }: { serialNumber: string }) => {
-        console.log('NFC tag read:', serialNumber);
-        abortRef.current?.abort();
-        setState('success');
-        if (navigator.vibrate) navigator.vibrate([100, 50, 200]);
-      });
-
-      reader.addEventListener('readingerror', () => {
-        abortRef.current?.abort();
-        setState('error');
-        if (navigator.vibrate) navigator.vibrate([300]);
-      });
-    } catch (err) {
-      console.log('NFC error:', err);
-      setState('error');
-    }
+  const handleManualRedeem = () => {
+    const code = manualCode.trim();
+    if (!code) return;
+    navigate('/redeem?pubID=' + encodeURIComponent(code));
   };
 
-  const reset = () => {
-    abortRef.current?.abort();
-    setState('idle');
-    setShop(null);
-    setCoinsAwarded(false);
-  };
-
-  const page: React.CSSProperties = { height: '100%', overflow: 'auto', backgroundColor: Colors.background };
-  const center: React.CSSProperties = { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', padding: '0 28px', textAlign: 'center' };
-
-  if (state === 'idle') {
-    return (
-      <div style={page}>
-        <div className="irish-bar" />
-        <div style={center}>
-          <span style={{ fontSize: 56, marginBottom: 12 }}>📱</span>
-          <h1 style={{ color: Colors.text, fontSize: 26, fontWeight: 800, margin: 0 }}>{copy.scan.title}</h1>
-          <p style={{ color: Colors.accent, fontSize: 14, fontWeight: 600, fontStyle: 'italic', margin: '4px 0 14px' }}>{copy.scan.subtitle}</p>
-          <p style={{ color: Colors.textSecondary, fontSize: 14, lineHeight: 1.5, marginBottom: 24 }}>{copy.scan.instructions}</p>
-
-          <button
-            onClick={() => setState('selecting')}
-            style={{
-              width: '100%', backgroundColor: Colors.primary, borderRadius: 16, padding: '16px 32px',
-              border: `2px solid ${Colors.primaryLight}`, cursor: 'pointer', marginBottom: 28,
-            }}
-          >
-            <div style={{ color: Colors.text, fontSize: 18, fontWeight: 800 }}>☘️ {copy.scan.chooseShop}</div>
-            <div style={{ color: Colors.accentLight, fontSize: 12, marginTop: 4, fontWeight: 500 }}>{copy.scan.chooseShopSubtext}</div>
-          </button>
-
-          <div style={{ width: '100%', display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {copy.scan.steps.map((step, i) => (
-              <div key={step} style={{
-                display: 'flex', alignItems: 'center', backgroundColor: Colors.surface,
-                borderRadius: 12, padding: 12, border: `1px solid ${Colors.border}`,
-              }}>
-                <span style={{
-                  width: 26, height: 26, borderRadius: 13, backgroundColor: Colors.primary,
-                  color: Colors.text, display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  fontSize: 13, fontWeight: 800, marginRight: 12, flexShrink: 0,
-                }}>{i + 1}</span>
-                <span style={{ color: Colors.textSecondary, fontSize: 13, fontWeight: 500 }}>
-                  {step}{i === 3 ? ' 🎉' : ''}
-                </span>
-              </div>
-            ))}
-          </div>
-
-          {nfcSupported && (
-            <div style={{ marginTop: 16, backgroundColor: Colors.success + '20', borderRadius: 10, padding: '8px 14px', border: `1px solid ${Colors.success}40` }}>
-              <span style={{ color: Colors.success, fontSize: 12, fontWeight: 600 }}>✓ NFC supported on this device</span>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  if (state === 'selecting') {
-    return (
-      <div style={page}>
-        <div className="irish-bar" />
-        <button onClick={reset} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '14px 20px', color: Colors.accent, fontSize: 15, fontWeight: 600 }}>
-          ← {copy.scan.back}
-        </button>
-        <div style={{ padding: '0 16px', overflow: 'auto', height: 'calc(100% - 56px)' }}>
-          <h2 style={{ color: Colors.text, fontSize: 22, fontWeight: 800, textAlign: 'center', margin: '0 0 4px' }}>{copy.scan.selectingTitle}</h2>
-          <p style={{ color: Colors.accent, fontSize: 13, textAlign: 'center', fontStyle: 'italic', marginBottom: 16 }}>{copy.scan.selectingSubtitle}</p>
-          {shopsData.map(shopItem => (
-            <button
-              key={shopItem.id}
-              onClick={() => { setShop(shopItem); setState('ready'); }}
-              style={{
-                width: '100%', display: 'flex', alignItems: 'center', backgroundColor: Colors.surface,
-                borderRadius: 14, padding: 14, marginBottom: 8, border: `1px solid ${Colors.border}`,
-                cursor: 'pointer', textAlign: 'left',
-              }}
-            >
-              <span style={{ fontSize: 26, marginRight: 12 }}>☕</span>
-              <div style={{ flex: 1 }}>
-                <div style={{ color: Colors.text, fontSize: 15, fontWeight: 700 }}>{shopItem.name}</div>
-                <div style={{ color: Colors.textSecondary, fontSize: 11, marginTop: 2 }}>{shopItem.address}</div>
-              </div>
-              <span style={{ color: Colors.accent, fontSize: 18, fontWeight: 700 }}>→</span>
-            </button>
-          ))}
-          <div style={{ height: 80 }} />
-        </div>
-      </div>
-    );
-  }
-
-  if (state === 'ready') {
-    return (
-      <div style={page}>
-        <div className="irish-bar" />
-        <div style={center}>
-          <div style={{ color: Colors.text, fontSize: 20, fontWeight: 800, marginBottom: 4 }}>{shop?.name}</div>
-          <div style={{ color: Colors.textSecondary, fontSize: 13, marginBottom: 28 }}>{shop?.address}</div>
-
-          <div className="pulse" style={{
-            width: 130, height: 130, borderRadius: 65,
-            backgroundColor: Colors.primary + '20', border: `3px solid ${Colors.primary}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginBottom: 20, boxShadow: `0 0 30px ${Colors.primary}40`,
-          }}>
-            <span style={{ fontSize: 44 }}>📱</span>
-          </div>
-
-          <h2 style={{ color: Colors.text, fontSize: 22, fontWeight: 800, margin: 0 }}>{copy.scan.readyTitle}</h2>
-          <p style={{ color: Colors.accent, fontStyle: 'italic', marginBottom: 24, fontSize: 14 }}>{copy.scan.readySubtitle}</p>
-
-          {nfcSupported ? (
-            <button
-              onClick={handleScan}
-              style={{
-                backgroundColor: Colors.accent, borderRadius: 16, padding: '16px 44px',
-                border: 'none', cursor: 'pointer', color: Colors.background, fontSize: 17, fontWeight: 800,
-                boxShadow: `0 4px 20px ${Colors.accent}40`,
-              }}
-            >☘️ {copy.scan.scanButton}</button>
-          ) : (
-            <div style={{ backgroundColor: Colors.surface, borderRadius: 14, padding: 16, border: `1px solid ${Colors.border}`, width: '100%' }}>
-              <div style={{ color: Colors.text, fontSize: 14, fontWeight: 700, marginBottom: 6 }}>📱 NFC not available</div>
-              <div style={{ color: Colors.textSecondary, fontSize: 12, lineHeight: 1.5 }}>
-                Use the physical NFC tag at the counter instead — just tap your phone on it, or visit the tag URL directly.
-              </div>
-            </div>
-          )}
-          {nfcSupported && (
-            <p style={{ color: Colors.success, fontSize: 11, marginTop: 10, fontWeight: 600 }}>✓ Hold phone to NFC tag when ready</p>
-          )}
-
-          <button onClick={reset} style={{ background: 'none', border: 'none', cursor: 'pointer', color: Colors.textSecondary, marginTop: 20, fontSize: 13 }}>
-            ← {copy.scan.changeShop}
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (state === 'scanning') {
-    return (
-      <div style={page}>
-        <div className="irish-bar" />
-        <div style={center}>
-          <div className="pulse" style={{
-            width: 160, height: 160, borderRadius: 80,
-            backgroundColor: Colors.accent + '15', border: `3px solid ${Colors.accent}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            marginBottom: 28, boxShadow: `0 0 40px ${Colors.accent}30`,
-          }}>
-            <span style={{ fontSize: 56 }}>📡</span>
-          </div>
-          <h2 style={{ color: Colors.text, fontSize: 26, fontWeight: 800, margin: 0 }}>{copy.scan.scanningTitle}</h2>
-          <p style={{ color: Colors.textSecondary, marginTop: 8, fontSize: 14 }}>{copy.scan.scanningSupported}</p>
-          <p style={{ color: Colors.accent, fontSize: 12, marginTop: 16, fontWeight: 600 }}>
-            📱 Waiting for NFC tag...
-          </p>
-          <button onClick={reset} style={{ background: 'none', border: 'none', cursor: 'pointer', color: Colors.textMuted, marginTop: 24, fontSize: 13 }}>
-            Cancel
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (state === 'success') {
-    // Award coins once
-    if (!coinsAwarded && shop) {
-      addCoins(shop.id, shop.name, 20);
-      setCoinsAwarded(true);
-    }
-
-    return (
-      <div style={page}>
-        <div className="irish-bar" />
-        <div style={center}>
-          <div className="pop" style={{
-            width: 110, height: 110, borderRadius: 55,
-            backgroundColor: Colors.success + '20', border: `3px solid ${Colors.success}`,
-            display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
-          }}>
-            <span style={{ fontSize: 52 }}>🎉</span>
-          </div>
-
-          <h1 style={{ color: Colors.text, fontSize: 30, fontWeight: 800, margin: 0 }}>+20 CraicCoins!</h1>
-          <p style={{ color: Colors.accent, fontStyle: 'italic', marginBottom: 20, fontSize: 14 }}>{shop?.name}</p>
-
-          <div style={{
-            backgroundColor: Colors.primary, borderRadius: 20, padding: 22,
-            width: '100%', textAlign: 'center', marginBottom: 20,
-            border: `2px solid ${Colors.primaryLight}`,
-            backgroundImage: `linear-gradient(135deg, ${Colors.primary} 0%, ${Colors.shamrock} 100%)`,
-          }}>
-            <div style={{ fontSize: 12, fontWeight: 600, color: Colors.accentLight, letterSpacing: 1, marginBottom: 4 }}>YOUR BALANCE</div>
-            <div style={{ fontSize: 42, fontWeight: 900, color: Colors.accent, letterSpacing: 2 }}>☘️ {balance}</div>
-            <div style={{ fontSize: 13, color: Colors.text, fontWeight: 600, marginTop: 4 }}>CraicCoins</div>
-            <div style={{ height: 1, backgroundColor: Colors.primaryLight + '40', margin: '12px 0' }} />
-            <div style={{ fontSize: 12, color: Colors.textSecondary, fontStyle: 'italic' }}>
-              {balance >= 100 ? '🎉 You can redeem €5 off!' : `${100 - balance} more for €5 off`}
-            </div>
-          </div>
-
-          <p style={{ color: Colors.text, fontSize: 15, fontWeight: 700 }}>☘️ {copy.scan.thankYou} 🇮🇪</p>
-          <p style={{ color: Colors.textSecondary, fontSize: 12, fontStyle: 'italic', marginBottom: 20 }}>{copy.scan.thankYouTranslation}</p>
-
-          <div style={{ display: 'flex', gap: 10, width: '100%' }}>
-            <button
-              onClick={reset}
-              style={{
-                flex: 1, backgroundColor: Colors.surface, borderRadius: 14, padding: '12px 20px',
-                border: `1px solid ${Colors.border}`, cursor: 'pointer', color: Colors.text, fontSize: 14, fontWeight: 700,
-              }}
-            >{copy.scan.reset} ↻</button>
-            <button
-              onClick={() => navigate('/wallet')}
-              style={{
-                flex: 1, backgroundColor: Colors.accent, borderRadius: 14, padding: '12px 20px',
-                border: 'none', cursor: 'pointer', color: Colors.background, fontSize: 14, fontWeight: 700,
-              }}
-            >☘️ Wallet</button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // error
   return (
-    <div style={page}>
+    <div className="app-shell">
       <div className="irish-bar" />
-      <div style={center}>
-        <span style={{ fontSize: 56, marginBottom: 14 }}>😕</span>
-        <h2 style={{ color: Colors.text, fontSize: 22, fontWeight: 800, margin: 0 }}>{copy.scan.errorTitle}</h2>
-        <p style={{ color: Colors.accent, fontStyle: 'italic', marginBottom: 14 }}>{copy.scan.errorSubtitle}</p>
-        <p style={{ color: Colors.textSecondary, fontSize: 14, lineHeight: 1.5, marginBottom: 20 }}>{copy.scan.errorMessage}</p>
-        <button
-          onClick={() => setState('ready')}
-          style={{
-            backgroundColor: Colors.primary, borderRadius: 14, padding: '14px 28px',
-            border: 'none', cursor: 'pointer', color: Colors.text, fontSize: 15, fontWeight: 700,
-          }}
-        >{copy.scan.retry}</button>
+
+      <div className="hero-card" style={{ textAlign: 'center', marginTop: 10 }}>
+        <div className="hero-eyebrow">CraicCoins · NFC</div>
+        <div style={{ fontSize: 52, margin: '6px 0 10px' }}>📲</div>
+        <h1 style={{ marginBottom: 8 }}>{isGA ? 'Tapail chun Tuilleamh' : 'Tap to Earn'}</h1>
+        <p>{isGA ? 'Tapail sticker NFC i dtabhairne rannphairteach.' : 'Tap an NFC sticker in any participating pub.'}</p>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8, background: 'rgba(22,155,98,0.12)', border: '1px solid rgba(22,155,98,0.3)', borderRadius: 20, padding: '6px 16px', marginTop: 8 }}>
+          <span style={{ fontSize: 16 }}>🪙</span>
+          <span style={{ fontWeight: 800, color: '#169B62' }}>{balance} CraicCoins</span>
+        </div>
       </div>
+
+      <div className="card" style={{ marginTop: 12 }}>
+        <div className="section-title">{isGA ? 'Conas a Oibrionn Se' : 'How It Works'}</div>
+        <div style={{ display: 'grid', gap: 16, marginTop: 8 }}>
+          {steps.map((step, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
+              <div style={{ width: 42, height: 42, borderRadius: 21, flexShrink: 0, background: 'linear-gradient(135deg, #0f6e41 0%, #2e8c5f 100%)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, boxShadow: '0 2px 8px rgba(15,110,65,0.3)' }}>
+                {step.icon}
+              </div>
+              <div>
+                <div style={{ fontWeight: 800, marginBottom: 3, fontSize: '0.95rem' }}>{step.title}</div>
+                <div style={{ color: 'var(--muted)', fontSize: '0.82rem', lineHeight: 1.45 }}>{step.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div className="card" style={{ marginTop: 12 }}>
+        <div className="section-title">{isGA ? 'Tithe Tabhairne Rannphairteacha' : 'Participating Pubs'}</div>
+        <p style={{ color: 'var(--muted)', fontSize: '0.82rem', marginBottom: 12 }}>
+          {isGA ? 'Tapail NFC in aon tabhairne den liosta seo.' : 'Tap NFC at any of these pubs to earn CraicCoins.'}
+        </p>
+        <div style={{ display: 'grid', gap: 8 }}>
+          {(pubsData as Pub[]).slice(0, 8).map((pub) => (
+            <div key={pub.id} style={{ display: 'flex', alignItems: 'center', gap: 12, border: '1px solid var(--line)', borderRadius: 12, padding: '10px 14px', background: 'var(--surface)' }}>
+              <div style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0, background: 'rgba(123,45,0,0.15)', border: '1px solid rgba(212,114,42,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18 }}>🍺</div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 800, fontSize: '0.9rem' }}>{pub.name}</div>
+                <div style={{ color: 'var(--muted)', fontSize: '0.75rem', marginTop: 1 }}>{pub.address}</div>
+              </div>
+              <div style={{ background: 'rgba(22,155,98,0.12)', border: '1px solid rgba(22,155,98,0.25)', borderRadius: 8, padding: '3px 8px', fontSize: '0.65rem', fontWeight: 800, color: '#169B62' }}>NFC</div>
+            </div>
+          ))}
+        </div>
+        <button className="btn btn-ghost" style={{ width: '100%', marginTop: 12, padding: '10px 0' }} onClick={() => navigate('/map?mode=pubs')}>
+          {isGA ? 'Feach ar an learscail' : 'View on map'}
+        </button>
+      </div>
+
+      <div className="card" style={{ marginTop: 12 }}>
+        <button onClick={() => setShowManual(!showManual)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+          <div className="section-title" style={{ margin: 0 }}>{isGA ? 'Ionchodu de Laimh' : 'Manual Entry'}</div>
+          <span style={{ color: 'var(--muted)', fontSize: 16 }}>{showManual ? '▲' : '▼'}</span>
+        </button>
+        {showManual && (
+          <div style={{ marginTop: 12 }}>
+            <p style={{ color: 'var(--muted)', fontSize: '0.82rem', marginBottom: 10 }}>{isGA ? 'Mura n-oibrionn NFC, cuir isteach cod an tabhairne anseo.' : 'If NFC is not working, enter the pub code here.'}</p>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="text" value={manualCode} onChange={(e) => setManualCode(e.target.value)} onKeyDown={(e) => { if (e.key === 'Enter') handleManualRedeem(); }} placeholder={isGA ? 'Cod tabhairne...' : 'Pub code...'} style={{ flex: 1, border: '1px solid var(--line)', borderRadius: 10, padding: '10px 14px', fontSize: '0.9rem', background: 'var(--bg)', color: 'var(--ink)', outline: 'none' }} />
+              <button className="btn" onClick={handleManualRedeem} disabled={!manualCode.trim()} style={{ padding: '10px 20px', borderRadius: 10 }}>→</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div style={{ height: 24 }} />
     </div>
   );
 }
