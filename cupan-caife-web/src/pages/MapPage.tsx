@@ -79,6 +79,17 @@ type PlaceSearchResult = {
   culture?: CultureFeature;
 };
 
+type PlannerTarget = {
+  id: string;
+  kind: 'pub' | 'culture';
+  name: string;
+  subtitle: string;
+  lat: number;
+  lon: number;
+  pub?: Venue;
+  culture?: CultureFeature;
+};
+
 function haversineMetres(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6_371_000;
   const toRad = (d: number) => (d * Math.PI) / 180;
@@ -294,14 +305,15 @@ export default function MapPage() {
   const [recognition, setRecognition] = useState<{ text: string; score: number } | null>(null);
   const [recording, setRecording] = useState(false);
   const stopRecordingRef = useRef<(() => void) | null>(null);
-  const [routeFrom, setRouteFrom] = useState('');
-  const [routeTo, setRouteTo] = useState('');
+  const [routeToPoint, setRouteToPoint] = useState<PlannerTarget | null>(null);
+  const [plannerQuery, setPlannerQuery] = useState('');
   const [routeSummary, setRouteSummary] = useState('');
   const [routePubs, setRoutePubs] = useState<RouteSuggestion[]>([]);
   const [planningRoute, setPlanningRoute] = useState(false);
   const [plannerOpen, setPlannerOpen] = useState(false);
   const [pubFilter, setPubFilter] = useState<PubFilter>('unsigned');
   const [markerView, setMarkerView] = useState<MarkerView>('all');
+  const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -312,14 +324,6 @@ export default function MapPage() {
     return allPubs.filter((pub) => !pub.signedUp);
   }, [allPubs, pubFilter]);
   const signedPubCount = useMemo(() => allPubs.filter((pub) => pub.signedUp).length, [allPubs]);
-
-  const pubsById = useMemo(() => {
-    const map = new Map<string, Venue>();
-    filteredPubs.forEach((pub) => {
-      map.set(pub.nfcTagId, pub);
-    });
-    return map;
-  }, [filteredPubs]);
 
   const text = useMemo(() => {
     if (language === 'ga') {
@@ -340,8 +344,12 @@ export default function MapPage() {
         practice: `Cleachtadh frasa (${PRACTICE_SECONDS}s)`,
         stopPractice: 'Stad agus Scorail',
         routeTitle: 'Plean Bealaigh Tithe Tabhairne',
-        routeFrom: 'Ait tosaithe',
-        routeTo: 'Ait ceann scribe',
+        routeFromMe: 'Tosach: Mo shuiochán',
+        routePickHint: 'Cliceáil ponc tabhairne/áite, no cuardaigh anseo',
+        routeToSearch: 'Cuardaigh ceann scriobe',
+        routeNoGps: 'Cumasaigh suiochán chun pleanáil a dhéanamh',
+        routeNoDestination: 'Roghnaigh ceann scriobe ar dtús',
+        routeSelected: 'Ceann scriobe roghnaithe',
         routePlan: 'Pleanail bealach',
         routeClear: 'Glan bealach',
         routeNearby: 'TabhairnI gar don bhealach',
@@ -355,6 +363,9 @@ export default function MapPage() {
         showPubsOnly: 'Tithe',
         showPlacesOnly: 'Aiteanna',
         signedSummary: `Sinithe: ${signedPubCount}`,
+        menuTitle: 'Roghanna Learscaile',
+        menuPubFilters: 'Scagaire Tithe Tabhairne',
+        menuLayerFilters: 'Cad a fheiceann tu',
         close: 'Dun',
         website: 'Suibheas',
         phone: 'Fón',
@@ -378,8 +389,12 @@ export default function MapPage() {
       practice: `Practice phrase (${PRACTICE_SECONDS}s)`,
       stopPractice: 'Stop and score',
       routeTitle: 'Pub Route Planner',
-      routeFrom: 'Start pub',
-      routeTo: 'End pub',
+      routeFromMe: 'Start: My location',
+      routePickHint: 'Click any pub/place dot, or search below',
+      routeToSearch: 'Search destination',
+      routeNoGps: 'Enable location to plan route',
+      routeNoDestination: 'Pick a destination first',
+      routeSelected: 'Destination selected',
       routePlan: 'Plan route',
       routeClear: 'Clear route',
       routeNearby: 'Pubs near this route',
@@ -393,6 +408,9 @@ export default function MapPage() {
       showPubsOnly: 'Pubs',
       showPlacesOnly: 'Places',
       signedSummary: `Signed up: ${signedPubCount}`,
+      menuTitle: 'Map Options',
+      menuPubFilters: 'Pub Filter',
+      menuLayerFilters: 'Visible Layers',
       close: 'Close',
       website: 'Website',
       phone: 'Phone',
@@ -448,7 +466,7 @@ export default function MapPage() {
       markerZoomAnimation: true,
     });
 
-    L.control.zoom({ position: 'topright' }).addTo(map);
+    L.control.zoom({ position: 'bottomright' }).addTo(map);
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
@@ -487,6 +505,8 @@ export default function MapPage() {
     const pubMarkerSize = zoom <= 8 ? 20 : zoom <= 10 ? 26 : 32;
     const placeDotRadius = zoom <= 6 ? 2 : zoom <= 8 ? 2.5 : zoom <= 10 ? 3 : 3.8;
     const pubEmojiSize = zoom <= 6 ? 11 : zoom <= 8 ? 12 : 14;
+    const placeBubbleSize = zoom <= 10 ? 24 : zoom <= 12 ? 28 : 32;
+    const placeEmojiSize = zoom <= 10 ? 12 : zoom <= 12 ? 13 : 14;
 
     markersRef.current.forEach((marker) => marker.remove());
     markersRef.current = [];
@@ -510,6 +530,7 @@ export default function MapPage() {
     });
 
     const pubsVisibleAtZoom = zoom >= 10;
+    const placeBubblesVisibleAtZoom = zoom >= 10;
 
     if (markerView !== 'places' && pubsVisibleAtZoom) {
       const pubsInView = filteredPubs.filter((pub) => bounds.contains([pub.latitude, pub.longitude]));
@@ -526,6 +547,17 @@ export default function MapPage() {
         const marker = L.marker([pub.latitude, pub.longitude], { icon: pubIcon }).addTo(map);
         marker.on('click', (e: L.LeafletMouseEvent) => {
           L.DomEvent.stopPropagation(e);
+          if (plannerOpen) {
+            setRouteToPoint({
+              id: `planner-pub-${pub.nfcTagId}`,
+              kind: 'pub',
+              name: pub.name,
+              subtitle: pub.address || '',
+              lat: pub.latitude,
+              lon: pub.longitude,
+              pub,
+            });
+          }
           setSelectedVenue(pub);
           setSelectedCulture(null);
           map.flyTo([pub.latitude - 0.002, pub.longitude], 14, { duration: 0.45 });
@@ -540,19 +572,50 @@ export default function MapPage() {
         return bounds.contains([lat, lng]);
       });
 
-      // Always show places in view as tiny dots so zoomed-out map feels calm but complete.
       cultureInView.forEach((feature) => {
         const [lng, lat] = feature.geometry.coordinates;
         const visited = visitedCulture.includes(feature.properties.name);
-        const marker = L.circleMarker([lat, lng], {
-          radius: placeDotRadius,
-          color: visited ? '#b7f0c5' : '#2ea043',
-          fillColor: visited ? '#57d17b' : '#2ea043',
-          fillOpacity: visited ? 0.9 : 0.8,
-          weight: 1,
-        }).addTo(map);
+
+        const marker = placeBubblesVisibleAtZoom
+          ? L.marker([lat, lng], {
+              icon: L.divIcon({
+                html: `<div style="
+                  background:${visited ? Colors.success : Colors.primary};
+                  border:2px solid ${visited ? '#fff' : Colors.accent};
+                  border-radius:50%;
+                  width:${placeBubbleSize}px;
+                  height:${placeBubbleSize}px;
+                  display:flex;
+                  align-items:center;
+                  justify-content:center;
+                  font-size:${placeEmojiSize}px;
+                ">${visited ? '✅' : '☘️'}</div>`,
+                className: '',
+                iconSize: [placeBubbleSize, placeBubbleSize],
+                iconAnchor: [placeBubbleSize / 2, placeBubbleSize / 2],
+              }),
+            }).addTo(map)
+          : L.circleMarker([lat, lng], {
+              radius: placeDotRadius,
+              color: visited ? '#b7f0c5' : '#2ea043',
+              fillColor: visited ? '#57d17b' : '#2ea043',
+              fillOpacity: visited ? 0.9 : 0.8,
+              weight: 1,
+            }).addTo(map);
+
         marker.on('click', (e: L.LeafletMouseEvent) => {
           L.DomEvent.stopPropagation(e);
+          if (plannerOpen) {
+            setRouteToPoint({
+              id: `planner-culture-${feature.properties.name}`,
+              kind: 'culture',
+              name: feature.properties.name,
+              subtitle: feature.properties.county || '',
+              lat,
+              lon: lng,
+              culture: feature,
+            });
+          }
           setSelectedCulture(feature);
           setSelectedVenue(null);
           if (map.getZoom() < 11) {
@@ -564,7 +627,7 @@ export default function MapPage() {
         markersRef.current.push(marker);
       });
     }
-  }, [filteredPubs, cultureFeatures, visitedCulture, markerView]);
+  }, [filteredPubs, cultureFeatures, visitedCulture, markerView, plannerOpen]);
 
   useEffect(() => {
     placeMarkers();
@@ -683,6 +746,42 @@ export default function MapPage() {
       .slice(0, 16);
   }, [searchQuery, filteredPubs, cultureFeatures]);
 
+  const plannerSearchResults = useMemo(() => {
+    const query = plannerQuery.trim().toLowerCase();
+    if (!query) return [] as PlannerTarget[];
+
+    const pubResults: PlannerTarget[] = filteredPubs.map((pub) => ({
+      id: `planner-pub-${pub.nfcTagId}`,
+      kind: 'pub',
+      name: pub.name,
+      subtitle: pub.address || '',
+      lat: pub.latitude,
+      lon: pub.longitude,
+      pub,
+    }));
+
+    const cultureResults: PlannerTarget[] = cultureFeatures.map((feature) => {
+      const [lon, lat] = feature.geometry.coordinates;
+      return {
+        id: `planner-culture-${feature.properties.name}`,
+        kind: 'culture',
+        name: feature.properties.name,
+        subtitle: feature.properties.county || '',
+        lat,
+        lon,
+        culture: feature,
+      };
+    });
+
+    return [...pubResults, ...cultureResults]
+      .filter((item) => {
+        const haystack = `${item.name} ${item.subtitle}`.toLowerCase();
+        return haystack.includes(query);
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 12);
+  }, [plannerQuery, filteredPubs, cultureFeatures]);
+
   const handleSelectPlaceSearchResult = (result: PlaceSearchResult) => {
     const map = mapRef.current;
     if (!map) return;
@@ -702,15 +801,17 @@ export default function MapPage() {
   };
 
   const handlePlanRoute = async () => {
-    if (!routeFrom || !routeTo || routeFrom === routeTo) return;
-    const from = pubsById.get(routeFrom);
-    const to = pubsById.get(routeTo);
     const map = mapRef.current;
-    if (!from || !to || !map) return;
+    if (!map || !userPos || !routeToPoint) return;
+
+    const fromLat = userPos.lat;
+    const fromLon = userPos.lng;
+    const toLat = routeToPoint.lat;
+    const toLon = routeToPoint.lon;
 
     setPlanningRoute(true);
     try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${from.longitude},${from.latitude};${to.longitude},${to.latitude}?overview=full&geometries=geojson`;
+      const url = `https://router.project-osrm.org/route/v1/driving/${fromLon},${fromLat};${toLon},${toLat}?overview=full&geometries=geojson`;
       const response = await fetch(url);
       const data = await response.json();
       const route = data?.routes?.[0];
@@ -726,7 +827,7 @@ export default function MapPage() {
         dashArray: '8 5',
       }).addTo(map);
 
-      const fromPin = L.marker([from.latitude, from.longitude], {
+      const fromPin = L.marker([fromLat, fromLon], {
         icon: L.divIcon({
           className: '',
           html: '<div style="background:#169B62;color:#fff;border:2px solid #fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:800">A</div>',
@@ -735,7 +836,7 @@ export default function MapPage() {
         }),
       }).addTo(map);
 
-      const toPin = L.marker([to.latitude, to.longitude], {
+      const toPin = L.marker([toLat, toLon], {
         icon: L.divIcon({
           className: '',
           html: '<div style="background:#7B2D00;color:#fff;border:2px solid #fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-weight:800">B</div>',
@@ -771,11 +872,13 @@ export default function MapPage() {
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
       <style>{`
-        .leaflet-right .leaflet-control-zoom {
+        .leaflet-control-zoom {
           border: none !important;
           box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35) !important;
           border-radius: 12px !important;
           overflow: hidden;
+          margin-right: 12px !important;
+          margin-bottom: 92px !important;
         }
         .leaflet-control-zoom a {
           width: 36px !important;
@@ -813,78 +916,114 @@ export default function MapPage() {
         </div>
       )}
 
-      <div style={{
-        position: 'absolute',
-        top: 16,
-        left: 16,
-        right: 84,
-        zIndex: 1000,
-        backgroundColor: 'rgba(13, 17, 23, 0.95)',
-        borderRadius: 16,
-        border: `1px solid ${Colors.border}`,
-        padding: '10px 14px',
-        backdropFilter: 'blur(8px)',
-      }}>
-        <div style={{ color: Colors.text, fontSize: 18, fontWeight: 800, textAlign: 'center' }}>
-          🍺☘️ {text.mapTitle}
+      <button
+        onClick={() => setMenuOpen((v) => !v)}
+        style={{
+          position: 'absolute',
+          top: 16,
+          left: 16,
+          zIndex: 1300,
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          border: '1px solid #D4722A',
+          background: menuOpen ? '#7B2D00' : 'rgba(13, 17, 23, 0.96)',
+          color: '#fff',
+          fontWeight: 800,
+          cursor: 'pointer',
+          boxShadow: '0 8px 18px rgba(0,0,0,0.35)',
+          fontSize: 20,
+        }}
+        title={text.menuTitle}
+      >
+        ☰
+      </button>
+
+      {menuOpen && (
+        <div style={{
+          position: 'absolute',
+          top: 84,
+          left: 16,
+          zIndex: 1250,
+          width: 'min(340px, calc(100vw - 32px))',
+          maxHeight: 'calc(100vh - 176px)',
+          overflowY: 'auto',
+          backgroundColor: 'rgba(13, 17, 23, 0.97)',
+          borderRadius: 14,
+          border: `1px solid ${Colors.border}`,
+          padding: 10,
+          boxShadow: '0 10px 26px rgba(0,0,0,0.4)',
+        }}>
+          <div style={{ color: Colors.text, fontSize: 16, fontWeight: 800 }}>
+            🍺☘️ {text.mapTitle}
+          </div>
+          <div style={{ color: Colors.accent, fontSize: 12, fontWeight: 600, marginTop: 2 }}>
+            {text.header}
+          </div>
+
+          <div style={{ color: Colors.textMuted, fontSize: 11, fontWeight: 700, marginTop: 10, marginBottom: 6 }}>
+            {text.menuPubFilters}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([
+              ['all', text.filterAll],
+              ['signed', text.filterSigned],
+              ['unsigned', text.filterUnsigned],
+            ] as Array<[PubFilter, string]>).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setPubFilter(value)}
+                style={{
+                  flex: 1,
+                  borderRadius: 999,
+                  border: `1px solid ${pubFilter === value ? '#D4722A' : Colors.border}`,
+                  background: pubFilter === value ? '#7B2D00' : Colors.card,
+                  color: Colors.text,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '6px 6px',
+                  cursor: 'pointer',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ color: Colors.textMuted, fontSize: 11, fontWeight: 700, marginTop: 10, marginBottom: 6 }}>
+            {text.menuLayerFilters}
+          </div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            {([
+              ['all', text.showAllMarkers],
+              ['pubs', text.showPubsOnly],
+              ['places', text.showPlacesOnly],
+            ] as Array<[MarkerView, string]>).map(([value, label]) => (
+              <button
+                key={value}
+                onClick={() => setMarkerView(value)}
+                style={{
+                  flex: 1,
+                  borderRadius: 999,
+                  border: `1px solid ${markerView === value ? Colors.accent : Colors.border}`,
+                  background: markerView === value ? Colors.primary : Colors.card,
+                  color: Colors.text,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  padding: '6px 6px',
+                  cursor: 'pointer',
+                }}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 10, fontWeight: 700 }}>
+            {text.signedSummary}
+          </div>
         </div>
-        <div style={{ color: Colors.accent, fontSize: 12, fontWeight: 600, textAlign: 'center', marginTop: 2 }}>
-          {text.header}
-        </div>
-        <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-          {([
-            ['all', text.filterAll],
-            ['signed', text.filterSigned],
-            ['unsigned', text.filterUnsigned],
-          ] as Array<[PubFilter, string]>).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setPubFilter(value)}
-              style={{
-                flex: 1,
-                borderRadius: 999,
-                border: `1px solid ${pubFilter === value ? '#D4722A' : Colors.border}`,
-                background: pubFilter === value ? '#7B2D00' : Colors.card,
-                color: Colors.text,
-                fontSize: 11,
-                fontWeight: 700,
-                padding: '5px 6px',
-                cursor: 'pointer',
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
-          {([
-            ['all', text.showAllMarkers],
-            ['pubs', text.showPubsOnly],
-            ['places', text.showPlacesOnly],
-          ] as Array<[MarkerView, string]>).map(([value, label]) => (
-            <button
-              key={value}
-              onClick={() => setMarkerView(value)}
-              style={{
-                flex: 1,
-                borderRadius: 999,
-                border: `1px solid ${markerView === value ? Colors.accent : Colors.border}`,
-                background: markerView === value ? Colors.primary : Colors.card,
-                color: Colors.text,
-                fontSize: 11,
-                fontWeight: 700,
-                padding: '5px 6px',
-                cursor: 'pointer',
-              }}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        <div style={{ color: Colors.textMuted, fontSize: 11, textAlign: 'center', marginTop: 4 }}>
-          {text.signedSummary}
-        </div>
-      </div>
+      )}
 
       <button
         onClick={() => setPlannerOpen((v) => !v)}
@@ -1004,48 +1143,85 @@ export default function MapPage() {
         }}>
           <div style={{ marginTop: 0, backgroundColor: Colors.card, borderRadius: 14, padding: 8 }}>
           <div style={{ color: Colors.accent, fontSize: 11, fontWeight: 800, marginBottom: 6 }}>{text.routeTitle}</div>
-          <div style={{ display: 'grid', gap: 6 }}>
-            <select
-              value={routeFrom}
-              onChange={(e) => setRouteFrom(e.target.value)}
-              style={{
-                width: '100%',
-                background: Colors.surface,
-                color: Colors.text,
-                border: `1px solid ${Colors.border}`,
-                borderRadius: 8,
-                padding: '7px 8px',
-                fontSize: 12,
-              }}
-            >
-              <option value="">{text.routeFrom}</option>
-              {filteredPubs.map((pub) => (
-                <option key={`from-${pub.nfcTagId}`} value={pub.nfcTagId}>{pub.name}</option>
-              ))}
-            </select>
-            <select
-              value={routeTo}
-              onChange={(e) => setRouteTo(e.target.value)}
-              style={{
-                width: '100%',
-                background: Colors.surface,
-                color: Colors.text,
-                border: `1px solid ${Colors.border}`,
-                borderRadius: 8,
-                padding: '7px 8px',
-                fontSize: 12,
-              }}
-            >
-              <option value="">{text.routeTo}</option>
-              {filteredPubs.map((pub) => (
-                <option key={`to-${pub.nfcTagId}`} value={pub.nfcTagId}>{pub.name}</option>
-              ))}
-            </select>
+          <div style={{
+            background: Colors.surface,
+            border: `1px solid ${Colors.border}`,
+            borderRadius: 8,
+            padding: '8px 10px',
+            fontSize: 12,
+            color: Colors.textSecondary,
+            marginBottom: 6,
+          }}>
+            📍 {text.routeFromMe}
           </div>
+          <div style={{ color: Colors.textMuted, fontSize: 11, marginBottom: 6 }}>{text.routePickHint}</div>
+
+          <input
+            value={plannerQuery}
+            onChange={(e) => setPlannerQuery(e.target.value)}
+            placeholder={text.routeToSearch}
+            style={{
+              width: '100%',
+              background: Colors.surface,
+              color: Colors.text,
+              border: `1px solid ${Colors.border}`,
+              borderRadius: 8,
+              padding: '8px 10px',
+              fontSize: 12,
+              outline: 'none',
+              boxSizing: 'border-box',
+            }}
+          />
+
+          {plannerQuery.trim().length > 0 && (
+            <div style={{ marginTop: 6, display: 'grid', gap: 4, maxHeight: 140, overflowY: 'auto' }}>
+              {plannerSearchResults.map((result) => (
+                <button
+                  key={result.id}
+                  onClick={() => {
+                    setRouteToPoint(result);
+                    setPlannerQuery('');
+                    if (result.kind === 'pub' && result.pub) {
+                      setSelectedVenue(result.pub);
+                      setSelectedCulture(null);
+                      mapRef.current?.flyTo([result.lat - 0.002, result.lon], 14, { duration: 0.45 });
+                    } else if (result.kind === 'culture' && result.culture) {
+                      setSelectedCulture(result.culture);
+                      setSelectedVenue(null);
+                      mapRef.current?.flyTo([result.lat - 0.004, result.lon], 11, { duration: 0.45 });
+                    }
+                  }}
+                  style={{
+                    textAlign: 'left',
+                    background: Colors.surface,
+                    border: `1px solid ${Colors.border}`,
+                    color: Colors.text,
+                    borderRadius: 8,
+                    padding: '6px 8px',
+                    fontSize: 11,
+                    cursor: 'pointer',
+                  }}
+                >
+                  {result.kind === 'pub' ? '🍺' : '☘️'} {result.name}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div style={{ marginTop: 6, color: Colors.textSecondary, fontSize: 12 }}>
+            {routeToPoint
+              ? `🎯 ${text.routeSelected}: ${routeToPoint.name}`
+              : `⚠️ ${text.routeNoDestination}`}
+          </div>
+
+          {!userPos && (
+            <div style={{ marginTop: 4, color: Colors.error, fontSize: 12 }}>{text.routeNoGps}</div>
+          )}
+
           <div style={{ display: 'flex', gap: 6, marginTop: 6 }}>
             <button
               onClick={() => void handlePlanRoute()}
-              disabled={planningRoute || !routeFrom || !routeTo || routeFrom === routeTo}
+              disabled={planningRoute || !userPos || !routeToPoint}
               style={{
                 flex: 1,
                 background: '#7B2D00',
@@ -1056,12 +1232,16 @@ export default function MapPage() {
                 fontWeight: 700,
                 fontSize: 12,
                 cursor: 'pointer',
+                opacity: planningRoute || !userPos || !routeToPoint ? 0.6 : 1,
               }}
             >
               {planningRoute ? '...' : text.routePlan}
             </button>
             <button
-              onClick={clearRoutePlan}
+              onClick={() => {
+                clearRoutePlan();
+                setRouteToPoint(null);
+              }}
               style={{
                 background: Colors.surface,
                 border: `1px solid ${Colors.border}`,
