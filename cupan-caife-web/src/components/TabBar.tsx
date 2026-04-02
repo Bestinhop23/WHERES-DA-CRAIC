@@ -5,6 +5,7 @@ import { useCraicCoins } from '../contexts/CraicCoinsContext';
 const TABS = [
   { path: '/map', icon: '🗺️', ga: 'Léarscáil', en: 'Map' },
   { path: '/scan', icon: '📲', ga: 'NFC', en: 'NFC' },
+  { path: '/planner', icon: '🧭', ga: 'Turais', en: 'Journeys' },
   { path: '/events', icon: '🎭', ga: 'Imeachtaí', en: 'Events' },
   { path: '/wallet', icon: '🪙', ga: 'Sparán', en: 'Wallet' },
 ];

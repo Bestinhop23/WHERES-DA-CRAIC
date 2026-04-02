@@ -316,6 +316,8 @@ export default function MapPage() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [topSpotsOpen, setTopSpotsOpen] = useState(false);
+  const [topSpotsTab, setTopSpotsTab] = useState<'towns' | 'pubs'>('towns');
 
   const allPubs = useMemo(() => (pubsData as Venue[]), []);
   const filteredPubs = useMemo(() => {
@@ -1436,6 +1438,166 @@ export default function MapPage() {
         </div>
       )}
 
+      {/* Top Spots floating button */}
+      {!topSpotsOpen && !selectedCulture && !selectedVenue && (
+        <button
+          onClick={() => setTopSpotsOpen(true)}
+          style={{
+            position: 'absolute',
+            bottom: 80,
+            left: 16,
+            zIndex: 1200,
+            background: 'rgba(13, 17, 23, 0.96)',
+            border: '1px solid #d4a029',
+            color: '#d4a029',
+            borderRadius: 999,
+            padding: '8px 14px',
+            fontWeight: 800,
+            fontSize: 12,
+            cursor: 'pointer',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.4)',
+          }}
+        >
+          🏆 {language === 'ga' ? 'Na Spotaí is Fearr' : 'Top Spots'}
+        </button>
+      )}
+
+      {/* Top Spots leaderboard panel */}
+      {topSpotsOpen && (
+        <div style={{
+          position: 'absolute',
+          left: 12,
+          right: 12,
+          bottom: 8,
+          zIndex: 1000,
+          backgroundColor: Colors.surface,
+          borderRadius: 20,
+          border: `1px solid ${Colors.border}`,
+          boxShadow: '0 -4px 24px rgba(0,0,0,0.45)',
+          padding: '16px 16px 14px',
+          maxHeight: '60vh',
+          overflowY: 'auto',
+        }}>
+          <button
+            onClick={() => setTopSpotsOpen(false)}
+            style={{
+              position: 'absolute',
+              top: 10,
+              right: 12,
+              width: 28,
+              height: 28,
+              borderRadius: 14,
+              border: 'none',
+              background: Colors.card,
+              color: Colors.textMuted,
+              cursor: 'pointer',
+              fontWeight: 800,
+            }}
+          >
+            ✕
+          </button>
+
+          <div style={{ color: Colors.text, fontSize: 16, fontWeight: 800, marginBottom: 10 }}>
+            🏆 {language === 'ga' ? 'Na Spotaí is Fearr' : 'Top Spots'}
+          </div>
+
+          {/* Tabs */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 12 }}>
+            {(['towns', 'pubs'] as const).map((tab) => {
+              const label = tab === 'towns'
+                ? (language === 'ga' ? '☘️ Bailte' : '☘️ Towns')
+                : (language === 'ga' ? '🍺 Tábhairní' : '🍺 Pubs');
+              const active = topSpotsTab === tab;
+              return (
+                <button
+                  key={tab}
+                  onClick={() => setTopSpotsTab(tab)}
+                  style={{
+                    flex: 1,
+                    borderRadius: 999,
+                    border: `1px solid ${active ? Colors.irish.green : Colors.border}`,
+                    background: active ? Colors.irish.green : Colors.card,
+                    color: active ? '#fff' : Colors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: 700,
+                    padding: '7px 0',
+                    cursor: 'pointer',
+                  }}
+                >
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {topSpotsTab === 'towns'
+              ? [...cultureFeatures]
+                  .map((f) => ({ f, score: 65 + (hashText(f.properties.name) % 35) }))
+                  .sort((a, b) => b.score - a.score)
+                  .slice(0, 10)
+                  .map(({ f, score }, idx) => {
+                    const color = score >= 90 ? Colors.irish.green : score >= 80 ? Colors.accent : Colors.irish.orange;
+                    const [lon, lat] = f.geometry.coordinates;
+                    return (
+                      <button
+                        key={f.properties.name}
+                        onClick={() => {
+                          mapRef.current?.flyTo([lat, lon], 13, { duration: 0.5 });
+                          setSelectedCulture(f);
+                          setTopSpotsOpen(false);
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, background: Colors.card, border: `1px solid ${Colors.border}`, borderRadius: 10, padding: '10px 12px', cursor: 'pointer', textAlign: 'left' }}
+                      >
+                        <span style={{ width: 24, height: 24, borderRadius: 12, background: idx < 3 ? Colors.gold : Colors.surface, color: idx < 3 ? Colors.background : Colors.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11, flexShrink: 0 }}>
+                          {idx + 1}
+                        </span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: Colors.text, fontWeight: 700, fontSize: 13 }}>
+                            {language === 'ga' && f.properties.name_ga ? f.properties.name_ga : f.properties.name}
+                          </div>
+                          {f.properties.county && <div style={{ color: Colors.textMuted, fontSize: 11 }}>{f.properties.county}</div>}
+                        </div>
+                        <span style={{ background: `${color}22`, border: `1px solid ${color}66`, borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 700, color, flexShrink: 0 }}>
+                          🔥 {score}
+                        </span>
+                      </button>
+                    );
+                  })
+              : [...allPubs]
+                  .map((pub) => ({ pub, score: 65 + (hashText(pub.name) % 35) }))
+                  .sort((a, b) => b.score - a.score)
+                  .slice(0, 10)
+                  .map(({ pub, score }, idx) => {
+                    const color = score >= 90 ? Colors.irish.green : score >= 80 ? Colors.accent : Colors.irish.orange;
+                    return (
+                      <button
+                        key={pub.nfcTagId}
+                        onClick={() => {
+                          mapRef.current?.flyTo([pub.latitude, pub.longitude], 15, { duration: 0.5 });
+                          setSelectedVenue(pub);
+                          setTopSpotsOpen(false);
+                        }}
+                        style={{ display: 'flex', alignItems: 'center', gap: 10, background: Colors.card, border: `1px solid ${Colors.border}`, borderRadius: 10, padding: '10px 12px', cursor: 'pointer', textAlign: 'left' }}
+                      >
+                        <span style={{ width: 24, height: 24, borderRadius: 12, background: idx < 3 ? Colors.gold : Colors.surface, color: idx < 3 ? Colors.background : Colors.textMuted, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 800, fontSize: 11, flexShrink: 0 }}>
+                          {idx + 1}
+                        </span>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ color: Colors.text, fontWeight: 700, fontSize: 13 }}>{pub.name}</div>
+                          <div style={{ color: Colors.textMuted, fontSize: 11 }}>{pub.address}</div>
+                        </div>
+                        <span style={{ background: `${color}22`, border: `1px solid ${color}66`, borderRadius: 999, padding: '2px 8px', fontSize: 11, fontWeight: 700, color, flexShrink: 0 }}>
+                          🔥 {score}
+                        </span>
+                      </button>
+                    );
+                  })
+            }
+          </div>
+        </div>
+      )}
+
       {selectedCulture && (
         <div style={{
           position: 'absolute',
@@ -1475,7 +1637,31 @@ export default function MapPage() {
               ? selectedCulture.properties.name_ga
               : selectedCulture.properties.name}
           </div>
-          <div style={{ color: Colors.textSecondary, fontSize: 12, marginTop: 2 }}>{selectedCulture.properties.county || ''}</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+            {selectedCulture.properties.county && (
+              <span style={{ color: Colors.textSecondary, fontSize: 12 }}>{selectedCulture.properties.county}</span>
+            )}
+            {(() => {
+              const score = 65 + (hashText(selectedCulture.properties.name) % 35);
+              const color = score >= 90 ? Colors.irish.green : score >= 80 ? Colors.accent : Colors.irish.orange;
+              return (
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 3,
+                  background: `${color}22`,
+                  border: `1px solid ${color}66`,
+                  borderRadius: 999,
+                  padding: '2px 8px',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  color,
+                }}>
+                  🔥 {language === 'ga' ? 'Scór Craice' : 'Craic Score'}: {score}
+                </span>
+              );
+            })()}
+          </div>
 
           {!!selectedCulture.properties.folklore_myth && (
             <p style={{ color: Colors.textSecondary, fontSize: 13, lineHeight: 1.45, marginTop: 10 }}>
